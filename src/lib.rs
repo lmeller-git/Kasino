@@ -1,14 +1,18 @@
-pub fn add(left: u64, right: u64) -> u64 {
-    left + right
-}
+//! TODO
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+#![cfg_attr(not(any(feature = "std", test)), no_std)]
+#![deny(missing_docs)]
+#![deny(clippy::missing_safety_doc, clippy::undocumented_unsafe_blocks)]
+#![warn(unsafe_op_in_unsafe_fn)]
 
-    #[test]
-    fn it_works() {
-        let result = add(2, 2);
-        assert_eq!(result, 4);
-    }
-}
+#[cfg(any(feature = "std", test))]
+extern crate std;
+
+#[allow(unused_extern_crates)]
+#[cfg(any(feature = "alloc", test))]
+extern crate alloc;
+
+mod construction;
+mod ordering;
+mod schedule;
+mod sync;

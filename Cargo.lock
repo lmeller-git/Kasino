@@ -445,7 +445,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "lop"
+name = "lope"
 version = "0.1.0"
 dependencies = [
  "criterion",
