@@ -15,4 +15,18 @@ extern crate alloc;
 mod construction;
 mod ordering;
 mod schedule;
+mod storage;
 mod sync;
+
+pub trait Collection {
+    type Item;
+
+    fn push(&self, item: Self::Item) -> Result<(), Self::Item>;
+    fn pop(&self) -> Option<Self::Item>;
+    fn len(&self) -> usize;
+    fn cap(&self) -> usize;
+
+    fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+}
