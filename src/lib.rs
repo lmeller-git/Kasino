@@ -12,8 +12,9 @@ extern crate std;
 #[cfg(any(feature = "alloc", test))]
 extern crate alloc;
 
+mod boxed;
 mod construction;
-mod ordering;
+mod inline;
 mod schedule;
 mod storage;
 mod sync;

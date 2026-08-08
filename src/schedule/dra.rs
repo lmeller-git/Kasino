@@ -8,84 +8,79 @@ use crate::{
 };
 
 #[derive(Default)]
-pub struct State {
+pub struct DRAState {
     enq: AtomicUsize,
     deq: AtomicUsize,
 }
 
-pub struct DRA<B> {
-    state: B,
-}
+pub struct DRA<const CHOOSE: usize = 2> {}
 
-impl<B: Default> Default for DRA<B> {
+impl<const CHOOSE: usize> Default for DRA<CHOOSE> {
     fn default() -> Self {
-        Self {
-            state: Default::default(),
-        }
+        Self {}
     }
 }
 
-pub struct DRAArm<'a, B, R> {
-    parent: &'a DRA<B>,
+pub struct DRAArm<R> {
     rng: R,
 }
 
-impl<B: Default + StorageBackend<State>, T> Schedule<T> for DRA<B> {
-    type Arm<'a>
-        = DRAArm<'a, B, SmallRng>
-    where
-        Self: 'a;
-    type State = State;
+impl<T, const CHOOSE: usize> Schedule<T> for DRA<CHOOSE> {
+    type Arm = DRAArm<SmallRng>;
 
-    fn choose_enq(&self, _choose_to: usize, arm: &mut Self::Arm<'_>) -> usize {
-        (0..2)
-            .map(|_| arm.rng.random_range(..self.state.len()))
+    fn choose_enq(
+        &self,
+        state: &impl StorageBackend<<Self::Arm as Hooked>::State>,
+        arm: &mut Self::Arm,
+    ) -> usize {
+        (0..CHOOSE)
+            .map(|_| arm.rng.random_range(..state.len()))
             .min_by_key(|&i| {
-                self.state.as_slice()[i]
+                state[i]
                     .enq
                     .load(Ordering::Relaxed)
-                    .saturating_sub(self.state.as_slice()[i].deq.load(Ordering::Relaxed))
+                    .saturating_sub(state[i].deq.load(Ordering::Relaxed))
             })
             .unwrap()
     }
 
-    fn choose_deq(&self, _choose_to: usize, arm: &mut Self::Arm<'_>) -> usize {
-        (0..2)
-            .map(|_| arm.rng.random_range(..self.state.len()))
+    fn choose_deq(
+        &self,
+        state: &impl StorageBackend<<Self::Arm as Hooked>::State>,
+        arm: &mut Self::Arm,
+    ) -> usize {
+        (0..CHOOSE)
+            .map(|_| arm.rng.random_range(..state.len()))
             .max_by_key(|&i| {
-                self.state.as_slice()[i]
+                state[i]
                     .deq
                     .load(Ordering::Relaxed)
-                    .saturating_sub(self.state.as_slice()[i].enq.load(Ordering::Relaxed))
+                    .saturating_sub(state[i].enq.load(Ordering::Relaxed))
             })
             .unwrap()
     }
 
-    fn fork_arm(&self, arm: &mut Self::Arm<'_>) -> Self::Arm<'_> {
+    fn fork_arm(&self, arm: &mut Self::Arm) -> Self::Arm {
         DRAArm {
-            parent: self,
             rng: arm.rng.fork(),
         }
     }
 
-    fn create_arm(&self) -> Self::Arm<'_> {
+    fn create_arm(&self) -> Self::Arm {
         DRAArm {
             rng: SmallRng::seed_from_u64(42),
-            parent: self,
         }
     }
 }
 
-impl<'a, B: StorageBackend<State>> Hooked for DRAArm<'a, B, SmallRng> {
-    fn on_enq(&mut self, choice: usize) {
-        self.parent.state.as_slice()[choice]
-            .enq
-            .fetch_add(1, Ordering::Release);
+impl Hooked for DRAArm<SmallRng> {
+    type State = DRAState;
+
+    fn on_enq(&mut self, sub_state: &Self::State) {
+        sub_state.enq.fetch_add(1, Ordering::Release);
     }
 
-    fn on_deq(&mut self, choice: usize) {
-        self.parent.state.as_slice()[choice]
-            .deq
-            .fetch_add(1, Ordering::Release);
+    fn on_deq(&mut self, sub_state: &Self::State) {
+        sub_state.deq.fetch_add(1, Ordering::Release);
     }
 }

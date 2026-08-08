@@ -8,76 +8,69 @@ use crate::{
 };
 
 #[derive(Default)]
-pub struct State {
+pub struct DCBOState {
     enq: AtomicUsize,
     deq: AtomicUsize,
 }
 
-pub struct DCBO<B, const CHOOSE: usize = 2> {
-    state: B,
-}
+pub struct DCBO<const CHOOSE: usize = 2> {}
 
-impl<B: Default, const CHOOSE: usize> Default for DCBO<B, CHOOSE> {
+impl<const CHOOSE: usize> Default for DCBO<CHOOSE> {
     fn default() -> Self {
-        Self {
-            state: Default::default(),
-        }
+        Self {}
     }
 }
 
-pub struct DCBOARM<'a, B, R, const CHOOSE: usize = 2> {
-    parent: &'a DCBO<B, CHOOSE>,
+pub struct DCBOARM<R> {
     rng: R,
 }
 
-impl<B: Default + StorageBackend<State>, T, const CHOOSE: usize> Schedule<T> for DCBO<B, CHOOSE> {
-    type Arm<'a>
-        = DCBOARM<'a, B, SmallRng, CHOOSE>
-    where
-        Self: 'a;
-    type State = State;
+impl<T, const CHOOSE: usize> Schedule<T> for DCBO<CHOOSE> {
+    type Arm = DCBOARM<SmallRng>;
 
-    fn choose_enq(&self, _choose_to: usize, arm: &mut Self::Arm<'_>) -> usize {
+    fn choose_enq(
+        &self,
+        state: &impl StorageBackend<<Self::Arm as Hooked>::State>,
+        arm: &mut Self::Arm,
+    ) -> usize {
         (0..CHOOSE)
-            .map(|_| arm.rng.random_range(..self.state.len()))
-            .min_by_key(|&i| self.state.as_slice()[i].enq.load(Ordering::Relaxed))
+            .map(|_| arm.rng.random_range(..state.len()))
+            .min_by_key(|&i| state[i].enq.load(Ordering::Relaxed))
             .unwrap()
     }
 
-    fn choose_deq(&self, _choose_to: usize, arm: &mut Self::Arm<'_>) -> usize {
+    fn choose_deq(
+        &self,
+        state: &impl StorageBackend<<Self::Arm as Hooked>::State>,
+        arm: &mut Self::Arm,
+    ) -> usize {
         (0..CHOOSE)
-            .map(|_| arm.rng.random_range(..self.state.len()))
-            .max_by_key(|&i| self.state.as_slice()[i].deq.load(Ordering::Relaxed))
+            .map(|_| arm.rng.random_range(..state.len()))
+            .max_by_key(|&i| state[i].deq.load(Ordering::Relaxed))
             .unwrap()
     }
 
-    fn fork_arm(&self, arm: &mut Self::Arm<'_>) -> Self::Arm<'_> {
+    fn fork_arm(&self, arm: &mut Self::Arm) -> Self::Arm {
         DCBOARM {
-            parent: self,
             rng: arm.rng.fork(),
         }
     }
 
-    fn create_arm(&self) -> Self::Arm<'_> {
+    fn create_arm(&self) -> Self::Arm {
         DCBOARM {
             rng: SmallRng::seed_from_u64(42),
-            parent: self,
         }
     }
 }
 
-impl<'a, B: StorageBackend<State>, const CHOOSE: usize> Hooked
-    for DCBOARM<'a, B, SmallRng, CHOOSE>
-{
-    fn on_enq(&mut self, choice: usize) {
-        self.parent.state.as_slice()[choice]
-            .enq
-            .fetch_add(1, Ordering::Relaxed);
+impl Hooked for DCBOARM<SmallRng> {
+    type State = DCBOState;
+
+    fn on_enq(&mut self, sub_state: &Self::State) {
+        sub_state.enq.fetch_add(1, Ordering::Relaxed);
     }
 
-    fn on_deq(&mut self, choice: usize) {
-        self.parent.state.as_slice()[choice]
-            .deq
-            .fetch_add(1, Ordering::Relaxed);
+    fn on_deq(&mut self, sub_state: &Self::State) {
+        sub_state.deq.fetch_add(1, Ordering::Relaxed);
     }
 }

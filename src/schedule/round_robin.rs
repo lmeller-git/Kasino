@@ -1,4 +1,7 @@
-use crate::schedule::{Hooked, Schedule};
+use crate::{
+    schedule::{Hooked, Schedule},
+    storage::StorageBackend,
+};
 
 #[derive(Default)]
 pub struct RoundRobin {}
@@ -17,27 +20,33 @@ impl RRArm {
 }
 
 impl<T> Schedule<T> for RoundRobin {
-    type Arm<'a>
-        = RRArm
-    where
-        Self: 'a;
-    type State = ();
+    type Arm = RRArm;
 
-    fn choose_enq(&self, choose_to: usize, arm: &mut Self::Arm<'_>) -> usize {
-        arm.fetch_add() % choose_to
+    fn choose_enq(
+        &self,
+        state: &impl StorageBackend<<Self::Arm as Hooked>::State>,
+        arm: &mut Self::Arm,
+    ) -> usize {
+        arm.fetch_add() % state.len()
     }
 
-    fn choose_deq(&self, choose_to: usize, arm: &mut Self::Arm<'_>) -> usize {
-        arm.fetch_add() % choose_to
+    fn choose_deq(
+        &self,
+        state: &impl StorageBackend<<Self::Arm as Hooked>::State>,
+        arm: &mut Self::Arm,
+    ) -> usize {
+        arm.fetch_add() % state.len()
     }
 
-    fn fork_arm(&self, arm: &mut Self::Arm<'_>) -> Self::Arm<'_> {
+    fn fork_arm(&self, arm: &mut Self::Arm) -> Self::Arm {
         *arm
     }
 
-    fn create_arm(&self) -> Self::Arm<'_> {
+    fn create_arm(&self) -> Self::Arm {
         RRArm::default()
     }
 }
 
-impl Hooked for RRArm {}
+impl Hooked for RRArm {
+    type State = ();
+}
