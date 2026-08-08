@@ -1,14 +1,13 @@
 use core::ops::{Index, IndexMut};
 
 use crate::{
-    Collection,
     NewSized,
     construction::{LopeCore, LopeCoreArm},
-    schedule::{DCBO, Hooked, Schedule},
+    schedule::{Hooked, Schedule},
     storage::StorageBackend,
 };
 
-struct InlineStorage<T, const N: usize> {
+pub(crate) struct InlineStorage<T, const N: usize> {
     arr: [T; N],
 }
 
@@ -57,16 +56,23 @@ impl<T, const N: usize> IndexMut<usize> for InlineStorage<T, N> {
     }
 }
 
-pub struct InlineLope<Q: Collection, S: Schedule<Q>, const N: usize, const SUB_CAP: usize = 32> {
+pub type InlineArm<'a, Q, S: Schedule<Q>, const N: usize, const SUB_CAP: usize> = LopeCoreArm<
+    'a,
+    Q,
+    S,
+    InlineStorage<Q, N>,
+    InlineStorage<<S::Arm as Hooked>::State, N>,
+    SUB_CAP,
+>;
+
+pub struct InlineLope<Q, S: Schedule<Q>, const N: usize, const SUB_CAP: usize = 32> {
     raw: LopeCore<Q, S, InlineStorage<Q, N>, InlineStorage<<S::Arm as Hooked>::State, N>, SUB_CAP>,
 }
 
-impl<
-    Q: Collection + NewSized<SUB_CAP>,
+impl<Q, S, const N: usize, const SUB_CAP: usize> InlineLope<Q, S, N, SUB_CAP>
+where
+    Q: NewSized<SUB_CAP>,
     S: Schedule<Q> + Default,
-    const N: usize,
-    const SUB_CAP: usize,
-> InlineLope<Q, S, N, SUB_CAP>
 {
     pub fn new() -> Self {
         Self {
@@ -77,58 +83,7 @@ impl<
         }
     }
 
-    pub fn new_root(
-        &self,
-    ) -> LopeCoreArm<
-        '_,
-        Q,
-        S,
-        InlineStorage<Q, N>,
-        InlineStorage<<S::Arm as Hooked>::State, N>,
-        SUB_CAP,
-    > {
+    pub fn new_root(&self) -> InlineArm<'_, Q, S, N, SUB_CAP> {
         self.raw.new_root()
     }
-}
-
-#[derive(Default)]
-struct Foo {}
-
-impl Collection for Foo {
-    type Item = ();
-
-    fn push(&self, item: Self::Item) -> Result<(), Self::Item> {
-        todo!()
-    }
-
-    fn pop(&self) -> Option<Self::Item> {
-        todo!()
-    }
-
-    fn len(&self) -> usize {
-        todo!()
-    }
-
-    fn cap(&self) -> usize {
-        todo!()
-    }
-}
-
-impl<const N: usize> NewSized<N> for Foo {
-    fn with_capacity() -> Self {
-        Self {}
-    }
-}
-
-fn foo() {
-    let f: InlineLope<Foo, DCBO, 3> = InlineLope::new();
-    let mut a = f.new_root();
-    let mut b = a.fork();
-    let mut c = a.fork();
-    let mut d = c.fork();
-
-    a.push(());
-    b.pop();
-
-    c.len();
 }

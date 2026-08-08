@@ -8,22 +8,18 @@ use crate::{
 #[cfg(feature = "alloc")]
 use crate::{NewSized, storage::GrowingBackend};
 
-pub struct LopeCore<Q, S, B, C, const SUB_CAP: usize = 32> {
+pub(crate) struct LopeCore<Q, S, B, C, const SUB_CAP: usize = 32> {
     scheduler: S,
     sub_collections: B,
     collection_state: C,
     _p: PhantomData<Q>,
 }
 
-impl<
-    Q: Collection,
-    S: Schedule<Q> + Default,
-    B: StorageBackend<Q>,
-    C: StorageBackend<<S::Arm as Hooked>::State>,
-    const SUB_CAP: usize,
-> LopeCore<Q, S, B, C, SUB_CAP>
+impl<Q, S, B, C, const SUB_CAP: usize> LopeCore<Q, S, B, C, SUB_CAP>
+where
+    S: Default,
 {
-    pub fn new_with(queues: B, states: C) -> Self {
+    pub(crate) fn new_with(queues: B, states: C) -> Self {
         Self {
             scheduler: S::default(),
             sub_collections: queues,
@@ -31,8 +27,13 @@ impl<
             _p: PhantomData,
         }
     }
+}
 
-    pub fn new_root(&self) -> LopeCoreArm<'_, Q, S, B, C, SUB_CAP> {
+impl<Q, S, B, C, const SUB_CAP: usize> LopeCore<Q, S, B, C, SUB_CAP>
+where
+    S: Schedule<Q>,
+{
+    pub(crate) fn new_root(&self) -> LopeCoreArm<'_, Q, S, B, C, SUB_CAP> {
         LopeCoreArm {
             parent: self,
             arm: self.scheduler.create_arm(),
@@ -41,13 +42,12 @@ impl<
 }
 
 #[cfg(feature = "alloc")]
-impl<
-    Q: Collection + NewSized<SUB_CAP>,
-    S: Schedule<Q> + Default,
+impl<Q, S, B, C, const SUB_CAP: usize> LopeCore<Q, S, B, C, SUB_CAP>
+where
+    Q: NewSized<SUB_CAP>,
+    S: Schedule<Q>,
     B: GrowingBackend<Q>,
     C: GrowingBackend<<S::Arm as Hooked>::State>,
-    const SUB_CAP: usize,
-> LopeCore<Q, S, B, C, SUB_CAP>
 {
     pub fn add_queue(&self) {
         self.sub_collections
@@ -62,14 +62,12 @@ pub struct LopeCoreArm<'a, Q, S: Schedule<Q>, B, C, const SUB_CAP: usize = 32> {
     arm: S::Arm,
 }
 
-impl<
-    'a,
+impl<'a, Q, S, B, C, const SUB_CAP: usize> LopeCoreArm<'a, Q, S, B, C, SUB_CAP>
+where
     Q: Collection,
     S: Schedule<Q>,
     B: StorageBackend<Q>,
     C: StorageBackend<<S::Arm as Hooked>::State>,
-    const SUB_CAP: usize,
-> LopeCoreArm<'a, Q, S, B, C, SUB_CAP>
 {
     pub fn fork(&mut self) -> Self {
         Self {
@@ -113,14 +111,12 @@ impl<
 }
 
 #[cfg(feature = "alloc")]
-impl<
-    'a,
-    Q: Collection + NewSized<SUB_CAP>,
-    S: Schedule<Q> + Default,
+impl<'a, Q, S, B, C, const SUB_CAP: usize> LopeCoreArm<'a, Q, S, B, C, SUB_CAP>
+where
+    Q: NewSized<SUB_CAP>,
+    S: Schedule<Q>,
     B: GrowingBackend<Q>,
     C: GrowingBackend<<S::Arm as Hooked>::State>,
-    const SUB_CAP: usize,
-> LopeCoreArm<'a, Q, S, B, C, SUB_CAP>
 {
     pub fn add_queue(&self) {
         self.parent.add_queue()

@@ -3,14 +3,13 @@ use core::ops::{Index, IndexMut};
 #[cfg(feature = "alloc")]
 use crate::storage::GrowingBackend;
 use crate::{
-    Collection,
     NewSized,
     construction::{LopeCore, LopeCoreArm},
-    schedule::{DCBO, Hooked, Schedule},
+    schedule::{Hooked, Schedule},
     storage::StorageBackend,
 };
 
-struct BoxedStorage<T> {
+pub(crate) struct BoxedStorage<T> {
     arr: boxcar::Vec<T>,
 }
 
@@ -23,12 +22,6 @@ impl<T: Default> Default for BoxedStorage<T> {
 }
 
 impl<T> BoxedStorage<T> {
-    pub(crate) fn new(size: usize) -> Self {
-        Self {
-            arr: boxcar::Vec::with_capacity(size),
-        }
-    }
-
     pub(crate) fn from_fn_and_size(f: impl Fn(usize) -> T, size: usize) -> Self {
         Self {
             arr: (0..size).map(f).collect(),
@@ -80,12 +73,14 @@ impl<T> GrowingBackend<T> for BoxedStorage<T> {
     }
 }
 
-pub struct BoxedLope<Q: Collection, S: Schedule<Q>, const SUB_CAP: usize = 32> {
+pub struct BoxedLope<Q, S: Schedule<Q>, const SUB_CAP: usize = 32> {
     raw: LopeCore<Q, S, BoxedStorage<Q>, BoxedStorage<<S::Arm as Hooked>::State>, SUB_CAP>,
 }
 
-impl<Q: Collection + NewSized<SUB_CAP>, S: Schedule<Q> + Default, const SUB_CAP: usize>
-    BoxedLope<Q, S, SUB_CAP>
+impl<Q, S, const SUB_CAP: usize> BoxedLope<Q, S, SUB_CAP>
+where
+    Q: NewSized<SUB_CAP>,
+    S: Schedule<Q> + Default,
 {
     pub fn new(n_cores: usize) -> Self {
         Self {
@@ -105,49 +100,8 @@ impl<Q: Collection + NewSized<SUB_CAP>, S: Schedule<Q> + Default, const SUB_CAP:
     {
         self.raw.new_root()
     }
-}
 
-#[derive(Default)]
-struct Foo {}
-
-impl Collection for Foo {
-    type Item = ();
-
-    fn push(&self, item: Self::Item) -> Result<(), Self::Item> {
-        todo!()
+    pub fn add_queue(&self) {
+        self.raw.add_queue();
     }
-
-    fn pop(&self) -> Option<Self::Item> {
-        todo!()
-    }
-
-    fn len(&self) -> usize {
-        todo!()
-    }
-
-    fn cap(&self) -> usize {
-        todo!()
-    }
-}
-
-impl<const N: usize> NewSized<N> for Foo {
-    fn with_capacity() -> Self {
-        Self {}
-    }
-}
-
-#[cfg(feature = "alloc")]
-fn foo() {
-    let f: BoxedLope<Foo, DCBO> = BoxedLope::new(3);
-    let mut a = f.new_root();
-    let mut b = a.fork();
-    let mut c = a.fork();
-    let mut d = c.fork();
-
-    d.add_queue();
-
-    a.push(());
-    b.pop();
-
-    c.len();
 }
