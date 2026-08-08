@@ -31,7 +31,8 @@ impl<T, const N: usize> StorageBackend<T> for InlineStorage<T, N> {
     {
         self.arr.iter()
     }
-
+}
+impl<T, const N: usize> InlineStorage<T, N> {
     fn from_fn(f: impl Fn(usize) -> T) -> Self {
         InlineStorage {
             arr: core::array::from_fn(f),

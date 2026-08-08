@@ -1,16 +1,16 @@
 use core::ops::{Index, IndexMut};
 
-pub(crate) trait StorageBackend<T>: Index<usize, Output = T> + IndexMut<usize> {
+pub trait StorageBackend<T>: Index<usize, Output = T> + IndexMut<usize> {
     fn len(&self) -> usize;
-
     fn iter<'a>(&'a self) -> impl Iterator<Item = &'a T>
     where
         T: 'a;
-
-    fn from_fn(f: impl Fn(usize) -> T) -> Self;
+    fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
 }
 
 #[cfg(feature = "alloc")]
-pub(crate) trait GrowingBackend<T>: StorageBackend<T> {
+pub trait GrowingBackend<T>: StorageBackend<T> {
     fn push(&self, item: T);
 }

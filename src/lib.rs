@@ -17,7 +17,7 @@ mod boxed;
 mod construction;
 mod inline;
 pub mod schedule;
-mod storage;
+pub mod storage;
 mod sync;
 
 #[cfg(feature = "alloc")]

@@ -41,12 +41,6 @@ impl<T> StorageBackend<T> for BoxedStorage<T> {
     {
         self.arr.iter().map(|(_, item)| item)
     }
-
-    fn from_fn(_: impl Fn(usize) -> T) -> Self {
-        BoxedStorage {
-            arr: boxcar::vec::Vec::default(),
-        }
-    }
 }
 
 impl<T> Index<usize> for BoxedStorage<T> {
