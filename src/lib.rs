@@ -12,12 +12,18 @@ extern crate std;
 #[cfg(any(feature = "alloc", test))]
 extern crate alloc;
 
+#[cfg(feature = "alloc")]
 mod boxed;
 mod construction;
 mod inline;
-mod schedule;
+pub mod schedule;
 mod storage;
 mod sync;
+
+#[cfg(feature = "alloc")]
+pub use boxed::*;
+pub use construction::LopeCoreArm;
+pub use inline::*;
 
 pub trait Collection {
     type Item;

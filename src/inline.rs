@@ -7,6 +7,7 @@ use crate::{
     storage::StorageBackend,
 };
 
+#[derive(PartialEq, Eq, Debug, Clone, PartialOrd, Ord, Hash, Copy)]
 pub(crate) struct InlineStorage<T, const N: usize> {
     arr: [T; N],
 }
@@ -85,5 +86,15 @@ where
 
     pub fn new_root(&self) -> InlineArm<'_, Q, S, N, SUB_CAP> {
         self.raw.new_root()
+    }
+}
+
+impl<Q, S, const N: usize, const SUB_CAP: usize> Default for InlineLope<Q, S, N, SUB_CAP>
+where
+    Q: NewSized<SUB_CAP>,
+    S: Schedule<Q> + Default,
+{
+    fn default() -> Self {
+        Self::new()
     }
 }

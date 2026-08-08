@@ -3,10 +3,10 @@ use crate::{
     storage::StorageBackend,
 };
 
-#[derive(Default)]
-pub struct RoundRobin {}
+#[derive(Default, PartialEq, Eq, PartialOrd, Ord, Debug, Clone, Copy, Hash)]
+pub struct RoundRobin;
 
-#[derive(Debug, Default, Clone, Copy)]
+#[derive(Default, PartialEq, Eq, PartialOrd, Ord, Debug, Clone, Copy, Hash)]
 pub struct RRArm {
     cur: usize,
 }

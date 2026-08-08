@@ -7,20 +7,16 @@ use crate::{
     sync::atomic::Ordering,
 };
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct DCBOState {
     enq: AtomicUsize,
     deq: AtomicUsize,
 }
 
-pub struct DCBO<const CHOOSE: usize = 2> {}
+#[derive(Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy)]
+pub struct DCBO<const CHOOSE: usize = 2>;
 
-impl<const CHOOSE: usize> Default for DCBO<CHOOSE> {
-    fn default() -> Self {
-        Self {}
-    }
-}
-
+#[derive(Default, PartialEq, Eq, PartialOrd, Ord, Debug, Clone, Copy, Hash)]
 pub struct DCBOARM<R> {
     rng: R,
 }

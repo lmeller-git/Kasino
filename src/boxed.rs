@@ -9,6 +9,7 @@ use crate::{
     storage::StorageBackend,
 };
 
+#[derive(PartialEq, Eq, Debug, Clone)]
 pub(crate) struct BoxedStorage<T> {
     arr: boxcar::Vec<T>,
 }
@@ -73,6 +74,9 @@ impl<T> GrowingBackend<T> for BoxedStorage<T> {
     }
 }
 
+pub type BoxedArm<'a, Q, S: Schedule<Q>, const SUB_CAP: usize = 32> =
+    LopeCoreArm<'a, Q, S, BoxedStorage<Q>, BoxedStorage<<S::Arm as Hooked>::State>, SUB_CAP>;
+
 pub struct BoxedLope<Q, S: Schedule<Q>, const SUB_CAP: usize = 32> {
     raw: LopeCore<Q, S, BoxedStorage<Q>, BoxedStorage<<S::Arm as Hooked>::State>, SUB_CAP>,
 }
@@ -94,10 +98,7 @@ where
         }
     }
 
-    pub fn new_root(
-        &self,
-    ) -> LopeCoreArm<'_, Q, S, BoxedStorage<Q>, BoxedStorage<<S::Arm as Hooked>::State>, SUB_CAP>
-    {
+    pub fn new_root(&self) -> BoxedArm<'_, Q, S, SUB_CAP> {
         self.raw.new_root()
     }
 

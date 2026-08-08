@@ -3,10 +3,10 @@ mod dra;
 mod random;
 mod round_robin;
 
-pub use dcbo::*;
-pub use dra::*;
-pub use random::*;
-pub use round_robin::*;
+pub use dcbo::DCBO;
+pub use dra::DRA;
+pub use random::RandomAccess;
+pub use round_robin::RoundRobin;
 
 use crate::storage::StorageBackend;
 

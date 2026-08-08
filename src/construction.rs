@@ -8,6 +8,7 @@ use crate::{
 #[cfg(feature = "alloc")]
 use crate::{NewSized, storage::GrowingBackend};
 
+#[derive(PartialEq, Eq, PartialOrd, Ord, Debug, Clone, Hash)]
 pub(crate) struct LopeCore<Q, S, B, C, const SUB_CAP: usize = 32> {
     scheduler: S,
     sub_collections: B,
@@ -57,6 +58,7 @@ where
     }
 }
 
+#[derive(PartialEq, Eq, PartialOrd, Ord, Debug, Hash)]
 pub struct LopeCoreArm<'a, Q, S: Schedule<Q>, B, C, const SUB_CAP: usize = 32> {
     parent: &'a LopeCore<Q, S, B, C, SUB_CAP>,
     arm: S::Arm,
