@@ -5,7 +5,7 @@ use crate::storage::GrowingBackend;
 use crate::{
     Collection,
     NewSized,
-    construction::LopeCore,
+    construction::{LopeCore, LopeCoreArm},
     schedule::{DCBO, Hooked, Schedule},
     storage::StorageBackend,
 };
@@ -98,6 +98,13 @@ impl<Q: Collection + NewSized<SUB_CAP>, S: Schedule<Q> + Default, const SUB_CAP:
             ),
         }
     }
+
+    pub fn new_root(
+        &self,
+    ) -> LopeCoreArm<'_, Q, S, BoxedStorage<Q>, BoxedStorage<<S::Arm as Hooked>::State>, SUB_CAP>
+    {
+        self.raw.new_root()
+    }
 }
 
 #[derive(Default)]
@@ -123,6 +130,12 @@ impl Collection for Foo {
     }
 }
 
+impl<const N: usize> NewSized<N> for Foo {
+    fn with_capacity() -> Self {
+        Self {}
+    }
+}
+
 #[cfg(feature = "alloc")]
 fn foo() {
     let f: BoxedLope<Foo, DCBO> = BoxedLope::new(3);
@@ -130,8 +143,8 @@ fn foo() {
     let mut b = a.fork();
     let mut c = a.fork();
     let mut d = c.fork();
-    f.add_queue(Default::default());
-    d.add_queue(Default::default());
+
+    d.add_queue();
 
     a.push(());
     b.pop();

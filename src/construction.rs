@@ -50,7 +50,8 @@ impl<
 > LopeCore<Q, S, B, C, SUB_CAP>
 {
     pub fn add_queue(&self) {
-        self.sub_collections.push(<Q as NewSized>::with_capacity());
+        self.sub_collections
+            .push(<Q as NewSized<SUB_CAP>>::with_capacity());
         self.collection_state
             .push(<S::Arm as Hooked>::State::default());
     }
@@ -114,14 +115,14 @@ impl<
 #[cfg(feature = "alloc")]
 impl<
     'a,
-    Q: Collection,
+    Q: Collection + NewSized<SUB_CAP>,
     S: Schedule<Q> + Default,
     B: GrowingBackend<Q>,
     C: GrowingBackend<<S::Arm as Hooked>::State>,
     const SUB_CAP: usize,
 > LopeCoreArm<'a, Q, S, B, C, SUB_CAP>
 {
-    pub fn add_queue(&self, q: Q) {
-        self.parent.add_queue(q)
+    pub fn add_queue(&self) {
+        self.parent.add_queue()
     }
 }

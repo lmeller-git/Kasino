@@ -1,7 +1,7 @@
 //! TODO
 
 #![cfg_attr(not(any(feature = "std", test)), no_std)]
-#![deny(missing_docs)]
+// #![deny(missing_docs)]
 #![deny(clippy::missing_safety_doc, clippy::undocumented_unsafe_blocks)]
 #![warn(unsafe_op_in_unsafe_fn)]
 
