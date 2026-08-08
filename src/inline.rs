@@ -2,7 +2,7 @@ use core::ops::{Index, IndexMut};
 
 use crate::{
     NewSized,
-    construction::{LopeCore, LopeCoreArm},
+    construction::{DEFAULT_QUEUE_CAP, LopeCore, LopeCoreArm},
     schedule::{Hooked, Schedule},
     storage::StorageBackend,
 };
@@ -21,10 +21,6 @@ impl<T: Default, const N: usize> Default for InlineStorage<T, N> {
 }
 
 impl<T, const N: usize> StorageBackend<T> for InlineStorage<T, N> {
-    fn capacity(&self) -> usize {
-        self.arr.len()
-    }
-
     fn len(&self) -> usize {
         self.arr.len()
     }
@@ -57,7 +53,14 @@ impl<T, const N: usize> IndexMut<usize> for InlineStorage<T, N> {
     }
 }
 
-pub type InlineArm<'a, Q, S: Schedule<Q>, const N: usize, const SUB_CAP: usize> = LopeCoreArm<
+#[allow(type_alias_bounds, private_interfaces)]
+pub type InlineArm<
+    'a,
+    Q,
+    S: Schedule<Q>,
+    const N: usize,
+    const SUB_CAP: usize = DEFAULT_QUEUE_CAP,
+> = LopeCoreArm<
     'a,
     Q,
     S,
@@ -66,7 +69,7 @@ pub type InlineArm<'a, Q, S: Schedule<Q>, const N: usize, const SUB_CAP: usize> 
     SUB_CAP,
 >;
 
-pub struct InlineLope<Q, S: Schedule<Q>, const N: usize, const SUB_CAP: usize = 32> {
+pub struct InlineLope<Q, S: Schedule<Q>, const N: usize, const SUB_CAP: usize = DEFAULT_QUEUE_CAP> {
     raw: LopeCore<Q, S, InlineStorage<Q, N>, InlineStorage<<S::Arm as Hooked>::State, N>, SUB_CAP>,
 }
 
@@ -84,6 +87,7 @@ where
         }
     }
 
+    #[allow(private_interfaces)]
     pub fn new_root(&self) -> InlineArm<'_, Q, S, N, SUB_CAP> {
         self.raw.new_root()
     }

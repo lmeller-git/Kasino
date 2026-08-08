@@ -6,6 +6,7 @@ use crate::{
 #[derive(Default, PartialEq, Eq, PartialOrd, Ord, Debug, Clone, Copy, Hash)]
 pub struct RoundRobin;
 
+#[allow(unnameable_types)]
 #[derive(Default, PartialEq, Eq, PartialOrd, Ord, Debug, Clone, Copy, Hash)]
 pub struct RRArm {
     cur: usize,

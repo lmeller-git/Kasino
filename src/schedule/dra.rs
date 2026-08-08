@@ -7,6 +7,7 @@ use crate::{
     sync::atomic::Ordering,
 };
 
+#[allow(unnameable_types)]
 #[derive(Default, Debug)]
 pub struct DRAState {
     enq: AtomicUsize,
@@ -16,6 +17,7 @@ pub struct DRAState {
 #[derive(Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy)]
 pub struct DRA<const CHOOSE: usize = 2>;
 
+#[allow(unnameable_types)]
 #[derive(Default, PartialEq, Eq, PartialOrd, Ord, Debug, Clone, Copy, Hash)]
 pub struct DRAArm<R> {
     rng: R,

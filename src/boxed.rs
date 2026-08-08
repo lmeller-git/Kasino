@@ -4,7 +4,7 @@ use core::ops::{Index, IndexMut};
 use crate::storage::GrowingBackend;
 use crate::{
     NewSized,
-    construction::{LopeCore, LopeCoreArm},
+    construction::{DEFAULT_QUEUE_CAP, LopeCore, LopeCoreArm},
     schedule::{Hooked, Schedule},
     storage::StorageBackend,
 };
@@ -31,10 +31,6 @@ impl<T> BoxedStorage<T> {
 }
 
 impl<T> StorageBackend<T> for BoxedStorage<T> {
-    fn capacity(&self) -> usize {
-        self.arr.count()
-    }
-
     fn len(&self) -> usize {
         self.arr.count()
     }
@@ -74,10 +70,11 @@ impl<T> GrowingBackend<T> for BoxedStorage<T> {
     }
 }
 
-pub type BoxedArm<'a, Q, S: Schedule<Q>, const SUB_CAP: usize = 32> =
+#[allow(type_alias_bounds, private_interfaces)]
+pub type BoxedArm<'a, Q, S: Schedule<Q>, const SUB_CAP: usize = DEFAULT_QUEUE_CAP> =
     LopeCoreArm<'a, Q, S, BoxedStorage<Q>, BoxedStorage<<S::Arm as Hooked>::State>, SUB_CAP>;
 
-pub struct BoxedLope<Q, S: Schedule<Q>, const SUB_CAP: usize = 32> {
+pub struct BoxedLope<Q, S: Schedule<Q>, const SUB_CAP: usize = DEFAULT_QUEUE_CAP> {
     raw: LopeCore<Q, S, BoxedStorage<Q>, BoxedStorage<<S::Arm as Hooked>::State>, SUB_CAP>,
 }
 
@@ -98,6 +95,7 @@ where
         }
     }
 
+    #[allow(private_interfaces)]
     pub fn new_root(&self) -> BoxedArm<'_, Q, S, SUB_CAP> {
         self.raw.new_root()
     }

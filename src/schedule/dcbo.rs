@@ -7,6 +7,7 @@ use crate::{
     sync::atomic::Ordering,
 };
 
+#[allow(unnameable_types)]
 #[derive(Default, Debug)]
 pub struct DCBOState {
     enq: AtomicUsize,
@@ -16,13 +17,14 @@ pub struct DCBOState {
 #[derive(Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy)]
 pub struct DCBO<const CHOOSE: usize = 2>;
 
+#[allow(unnameable_types)]
 #[derive(Default, PartialEq, Eq, PartialOrd, Ord, Debug, Clone, Copy, Hash)]
-pub struct DCBOARM<R> {
+pub struct DCBOArm<R> {
     rng: R,
 }
 
 impl<T, const CHOOSE: usize> Schedule<T> for DCBO<CHOOSE> {
-    type Arm = DCBOARM<SmallRng>;
+    type Arm = DCBOArm<SmallRng>;
 
     fn choose_enq(
         &self,
@@ -47,19 +49,19 @@ impl<T, const CHOOSE: usize> Schedule<T> for DCBO<CHOOSE> {
     }
 
     fn fork_arm(&self, arm: &mut Self::Arm) -> Self::Arm {
-        DCBOARM {
+        DCBOArm {
             rng: arm.rng.fork(),
         }
     }
 
     fn create_arm(&self) -> Self::Arm {
-        DCBOARM {
+        DCBOArm {
             rng: SmallRng::seed_from_u64(42),
         }
     }
 }
 
-impl Hooked for DCBOARM<SmallRng> {
+impl Hooked for DCBOArm<SmallRng> {
     type State = DCBOState;
 
     fn on_enq(&mut self, sub_state: &Self::State) {

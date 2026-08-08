@@ -8,8 +8,10 @@ use crate::{
 #[cfg(feature = "alloc")]
 use crate::{NewSized, storage::GrowingBackend};
 
+pub(crate) const DEFAULT_QUEUE_CAP: usize = 32;
+
 #[derive(PartialEq, Eq, PartialOrd, Ord, Debug, Clone, Hash)]
-pub(crate) struct LopeCore<Q, S, B, C, const SUB_CAP: usize = 32> {
+pub(crate) struct LopeCore<Q, S, B, C, const SUB_CAP: usize = DEFAULT_QUEUE_CAP> {
     scheduler: S,
     sub_collections: B,
     collection_state: C,
@@ -50,7 +52,7 @@ where
     B: GrowingBackend<Q>,
     C: GrowingBackend<<S::Arm as Hooked>::State>,
 {
-    pub fn add_queue(&self) {
+    pub(crate) fn add_queue(&self) {
         self.sub_collections
             .push(<Q as NewSized<SUB_CAP>>::with_capacity());
         self.collection_state
@@ -59,7 +61,7 @@ where
 }
 
 #[derive(PartialEq, Eq, PartialOrd, Ord, Debug, Hash)]
-pub struct LopeCoreArm<'a, Q, S: Schedule<Q>, B, C, const SUB_CAP: usize = 32> {
+pub struct LopeCoreArm<'a, Q, S: Schedule<Q>, B, C, const SUB_CAP: usize = DEFAULT_QUEUE_CAP> {
     parent: &'a LopeCore<Q, S, B, C, SUB_CAP>,
     arm: S::Arm,
 }
@@ -110,6 +112,10 @@ where
     pub fn cap(&self) -> usize {
         self.parent.sub_collections.iter().map(|q| q.cap()).sum()
     }
+
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
 }
 
 #[cfg(feature = "alloc")]
@@ -121,6 +127,6 @@ where
     C: GrowingBackend<<S::Arm as Hooked>::State>,
 {
     pub fn add_queue(&self) {
-        self.parent.add_queue()
+        self.parent.add_queue();
     }
 }
