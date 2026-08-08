@@ -8,7 +8,7 @@ pub trait StorageBackend<T>: Index<usize, Output = T> + IndexMut<usize> {
     where
         T: 'a;
 
-    fn from_fn<R>(f: impl Fn(usize) -> R) -> impl StorageBackend<R>;
+    fn from_fn(f: impl Fn(usize) -> T) -> Self;
 }
 
 #[cfg(feature = "alloc")]

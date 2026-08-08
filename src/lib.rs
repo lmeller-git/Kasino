@@ -31,3 +31,7 @@ pub trait Collection {
         self.len() == 0
     }
 }
+
+pub trait NewSized<const N: usize> {
+    fn with_capacity() -> Self;
+}

@@ -10,7 +10,7 @@ pub use round_robin::*;
 
 use crate::storage::StorageBackend;
 
-pub trait Schedule<T>: Default {
+pub trait Schedule<T> {
     type Arm: Hooked;
 
     fn choose_enq(

@@ -2,7 +2,8 @@ use core::ops::{Index, IndexMut};
 
 use crate::{
     Collection,
-    construction::LopeCore,
+    NewSized,
+    construction::{LopeCore, LopeCoreArm},
     schedule::{DCBO, Hooked, Schedule},
     storage::StorageBackend,
 };
@@ -35,8 +36,8 @@ impl<T, const N: usize> StorageBackend<T> for InlineStorage<T, N> {
         self.arr.iter()
     }
 
-    fn from_fn<R>(f: impl Fn(usize) -> R) -> impl StorageBackend<R> {
-        InlineStorage::<R, N> {
+    fn from_fn(f: impl Fn(usize) -> T) -> Self {
+        InlineStorage {
             arr: core::array::from_fn(f),
         }
     }
@@ -56,8 +57,39 @@ impl<T, const N: usize> IndexMut<usize> for InlineStorage<T, N> {
     }
 }
 
-pub type InlineLope<Q: Collection, S: Schedule<Q::Item>, const N: usize> =
-    LopeCore<Q, S, InlineStorage<Q, N>, InlineStorage<<S::Arm as Hooked>::State, N>>;
+pub struct InlineLope<Q: Collection, S: Schedule<Q>, const N: usize, const SUB_CAP: usize = 32> {
+    raw: LopeCore<Q, S, InlineStorage<Q, N>, InlineStorage<<S::Arm as Hooked>::State, N>, SUB_CAP>,
+}
+
+impl<
+    Q: Collection + NewSized<SUB_CAP>,
+    S: Schedule<Q> + Default,
+    const N: usize,
+    const SUB_CAP: usize,
+> InlineLope<Q, S, N, SUB_CAP>
+{
+    pub fn new() -> Self {
+        Self {
+            raw: LopeCore::new_with(
+                InlineStorage::from_fn(|_| <Q as NewSized<SUB_CAP>>::with_capacity()),
+                InlineStorage::from_fn(|_| Default::default()),
+            ),
+        }
+    }
+
+    pub fn new_root(
+        &self,
+    ) -> LopeCoreArm<
+        '_,
+        Q,
+        S,
+        InlineStorage<Q, N>,
+        InlineStorage<<S::Arm as Hooked>::State, N>,
+        SUB_CAP,
+    > {
+        self.raw.new_root()
+    }
+}
 
 #[derive(Default)]
 struct Foo {}
@@ -79,6 +111,12 @@ impl Collection for Foo {
 
     fn cap(&self) -> usize {
         todo!()
+    }
+}
+
+impl<const N: usize> NewSized<N> for Foo {
+    fn with_capacity() -> Self {
+        Self {}
     }
 }
 

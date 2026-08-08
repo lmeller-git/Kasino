@@ -1,14 +1,14 @@
 use core::marker::PhantomData;
 
-#[cfg(feature = "alloc")]
-use crate::storage::GrowingBackend;
 use crate::{
     Collection,
     schedule::{Hooked, Schedule},
     storage::StorageBackend,
 };
+#[cfg(feature = "alloc")]
+use crate::{NewSized, storage::GrowingBackend};
 
-pub struct LopeCore<Q, S, B, C> {
+pub struct LopeCore<Q, S, B, C, const SUB_CAP: usize = 32> {
     scheduler: S,
     sub_collections: B,
     collection_state: C,
@@ -16,22 +16,23 @@ pub struct LopeCore<Q, S, B, C> {
 }
 
 impl<
-    Q: Collection + Default,
+    Q: Collection,
     S: Schedule<Q> + Default,
-    B: StorageBackend<Q> + Default,
-    C: StorageBackend<<S::Arm as Hooked>::State> + Default,
-> LopeCore<Q, S, B, C>
+    B: StorageBackend<Q>,
+    C: StorageBackend<<S::Arm as Hooked>::State>,
+    const SUB_CAP: usize,
+> LopeCore<Q, S, B, C, SUB_CAP>
 {
-    pub fn new() -> Self {
+    pub fn new_with(queues: B, states: C) -> Self {
         Self {
             scheduler: S::default(),
-            sub_collections: B::default(),
-            collection_state: C::default(),
+            sub_collections: queues,
+            collection_state: states,
             _p: PhantomData,
         }
     }
 
-    pub fn new_root(&self) -> LopeCoreArm<'_, Q, S, B, C> {
+    pub fn new_root(&self) -> LopeCoreArm<'_, Q, S, B, C, SUB_CAP> {
         LopeCoreArm {
             parent: self,
             arm: self.scheduler.create_arm(),
@@ -41,21 +42,22 @@ impl<
 
 #[cfg(feature = "alloc")]
 impl<
-    Q: Collection,
+    Q: Collection + NewSized<SUB_CAP>,
     S: Schedule<Q> + Default,
     B: GrowingBackend<Q>,
     C: GrowingBackend<<S::Arm as Hooked>::State>,
-> LopeCore<Q, S, B, C>
+    const SUB_CAP: usize,
+> LopeCore<Q, S, B, C, SUB_CAP>
 {
-    pub fn add_queue(&self, q: Q) {
-        self.sub_collections.push(q);
+    pub fn add_queue(&self) {
+        self.sub_collections.push(<Q as NewSized>::with_capacity());
         self.collection_state
             .push(<S::Arm as Hooked>::State::default());
     }
 }
 
-pub struct LopeCoreArm<'a, Q, S: Schedule<Q>, B, C> {
-    parent: &'a LopeCore<Q, S, B, C>,
+pub struct LopeCoreArm<'a, Q, S: Schedule<Q>, B, C, const SUB_CAP: usize = 32> {
+    parent: &'a LopeCore<Q, S, B, C, SUB_CAP>,
     arm: S::Arm,
 }
 
@@ -65,7 +67,8 @@ impl<
     S: Schedule<Q>,
     B: StorageBackend<Q>,
     C: StorageBackend<<S::Arm as Hooked>::State>,
-> LopeCoreArm<'a, Q, S, B, C>
+    const SUB_CAP: usize,
+> LopeCoreArm<'a, Q, S, B, C, SUB_CAP>
 {
     pub fn fork(&mut self) -> Self {
         Self {
@@ -115,7 +118,8 @@ impl<
     S: Schedule<Q> + Default,
     B: GrowingBackend<Q>,
     C: GrowingBackend<<S::Arm as Hooked>::State>,
-> LopeCoreArm<'a, Q, S, B, C>
+    const SUB_CAP: usize,
+> LopeCoreArm<'a, Q, S, B, C, SUB_CAP>
 {
     pub fn add_queue(&self, q: Q) {
         self.parent.add_queue(q)
