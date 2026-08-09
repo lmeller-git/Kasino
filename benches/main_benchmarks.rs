@@ -266,12 +266,12 @@ fn bench_mpsc(c: &mut Criterion) {
             )+
         };
     }
-    bench_raw_mpsc!([1, 2, 4, 8]);
+    bench_raw_mpsc!([1, 2, 4, 8, 64]);
 
-    bench_lope_mpsc!(group, "random", RandomAccess<SmallRng>, [1, 2, 4, 8]);
-    bench_lope_mpsc!(group, "round_robin", RoundRobin, [1, 2, 4, 8]);
-    bench_lope_mpsc!(group, "dcbo", DCBO<2>, [1, 2, 4, 8]);
-    bench_lope_mpsc!(group, "dra", DRA<2>, [1, 2, 4, 8]);
+    bench_lope_mpsc!(group, "random", RandomAccess<SmallRng>, [1, 2, 4, 8, 64]);
+    bench_lope_mpsc!(group, "round_robin", RoundRobin, [1, 2, 4, 8, 64]);
+    bench_lope_mpsc!(group, "dcbo", DCBO<2>, [1, 2, 4, 64]);
+    bench_lope_mpsc!(group, "dra", DRA<2>, [1, 2, 4, 8, 64]);
 
     group.finish();
 }
@@ -315,12 +315,12 @@ fn bench_mpmc(c: &mut Criterion) {
             )+
         };
     }
-    bench_raw_mpmc!([1, 2, 4, 8]);
+    bench_raw_mpmc!([1, 2, 4, 8, 64]);
 
-    bench_lope_mpmc!(group, "random", RandomAccess<SmallRng>, [1, 2, 4, 8]);
-    bench_lope_mpmc!(group, "round_robin", RoundRobin, [1, 2, 4, 8]);
-    bench_lope_mpmc!(group, "dcbo", DCBO<2>, [1, 2, 4, 8]);
-    bench_lope_mpmc!(group, "dra", DRA<2>, [1, 2, 4, 8]);
+    bench_lope_mpmc!(group, "random", RandomAccess<SmallRng>, [1, 2, 4, 8, 64]);
+    bench_lope_mpmc!(group, "round_robin", RoundRobin, [1, 2, 4, 8, 64]);
+    bench_lope_mpmc!(group, "dcbo", DCBO<2>, [1, 2, 4, 8, 64]);
+    bench_lope_mpmc!(group, "dra", DRA<2>, [1, 2, 4, 8, 64]);
 
     group.finish();
 }

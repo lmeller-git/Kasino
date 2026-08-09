@@ -81,14 +81,22 @@ where
             .parent
             .scheduler
             .choose_deq(&self.parent.collection_state, &mut self.arm);
-        let r = self.parent.sub_collections[i].pop();
-        if r.is_some() {
+        if let Some(item) = self.parent.sub_collections[i].pop() {
             self.arm.on_deq(&self.parent.collection_state[i]);
+            return Some(item);
         }
+
         // TODO: may want to do a double-collect pass here to grant empty-linearizability.
         // But this is dependant on schedule and may not always be possible (for example on random schedule).
         // Is also not strictly necessary and reduces performance
-        r
+        for (i, q) in self.parent.sub_collections.iter().enumerate() {
+            if let Some(item) = q.pop() {
+                self.arm.on_deq(&self.parent.collection_state[i]);
+                return Some(item);
+            }
+        }
+
+        None
     }
 
     /// the total len of all active subcollections
@@ -121,13 +129,20 @@ where
             .parent
             .scheduler
             .choose_enq(&self.parent.collection_state, &mut self.arm);
-        let r = self.parent.sub_collections[i].pop();
-        if r.is_some() {
+        if let Some(item) = self.parent.sub_collections[i].pop() {
             self.arm.on_deq(&self.parent.collection_state[i]);
+            return Some((item, i));
         }
         // TODO: may want to do a double-collect pass here to grant empty-linearizability.
         // But this is dependant on schedule and may not always be possible (for example on random schedule).
         // Is also not strictly necessary and reduces performance
-        r.map(|r| (r, i))
+        for (i, q) in self.parent.sub_collections.iter().enumerate() {
+            if let Some(item) = q.pop() {
+                self.arm.on_deq(&self.parent.collection_state[i]);
+                return Some((item, i));
+            }
+        }
+
+        None
     }
 }
