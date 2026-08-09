@@ -1,3 +1,4 @@
+use crossbeam_utils::CachePadded;
 use portable_atomic::AtomicUsize;
 use rand::{RngExt, SeedableRng, rngs::SmallRng};
 
@@ -45,7 +46,7 @@ impl<T, const CHOOSE: usize> Schedule<T> for DCBO<CHOOSE> {
     ) -> usize {
         (0..CHOOSE)
             .map(|_| arm.rng.random_range(..state.len()))
-            .max_by_key(|&i| state[i].deq.load(Ordering::Relaxed))
+            .min_by_key(|&i| state[i].deq.load(Ordering::Relaxed))
             .unwrap()
     }
 
@@ -63,7 +64,7 @@ impl<T, const CHOOSE: usize> Schedule<T> for DCBO<CHOOSE> {
 }
 
 impl Hooked for DCBOArm<SmallRng> {
-    type State = DCBOState;
+    type State = CachePadded<DCBOState>;
 
     fn on_enq(&mut self, sub_state: &Self::State) {
         sub_state.enq.fetch_add(1, Ordering::Relaxed);

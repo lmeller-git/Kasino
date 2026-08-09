@@ -1,5 +1,329 @@
-use criterion::criterion_main;
+use std::{
+    hint::black_box,
+    sync::atomic::{AtomicUsize, Ordering},
+    time::{Duration, Instant},
+};
 
-fn foo() {}
+use criterion::{BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
+use crossbeam_queue::ArrayQueue as RawArrayQueue;
+use lope::{
+    Collection,
+    InlineLope,
+    NewSized,
+    schedule::{DCBO, DRA, RandomAccess, RoundRobin},
+};
+use rand::rngs::SmallRng;
 
-criterion_main!(foo);
+struct Backoff(u32);
+impl Backoff {
+    fn new() -> Self {
+        Self(1)
+    }
+
+    fn spin(&mut self) {
+        for _ in 0..self.0 {
+            std::hint::spin_loop();
+        }
+        self.0 = (self.0 * 2).min(1024);
+    }
+}
+
+struct QAdapter<T, const N: usize>(RawArrayQueue<T>);
+
+impl<T, const N: usize> Collection for QAdapter<T, N> {
+    type Item = T;
+
+    fn push(&self, item: T) -> Result<(), T> {
+        self.0.push(item)
+    }
+
+    fn pop(&self) -> Option<T> {
+        self.0.pop()
+    }
+
+    fn len(&self) -> usize {
+        self.0.len()
+    }
+
+    fn cap(&self) -> usize {
+        self.0.capacity()
+    }
+}
+
+impl<T, const N: usize> NewSized<N> for QAdapter<T, N> {
+    fn with_capacity() -> Self {
+        Self(RawArrayQueue::new(N))
+    }
+}
+
+fn retry_push<T>(q: &RawArrayQueue<T>, mut item: T) {
+    let mut b = Backoff::new();
+    loop {
+        match q.push(item) {
+            Ok(()) => return,
+            Err(back) => {
+                item = back;
+                b.spin();
+            }
+        }
+    }
+}
+
+fn retry_pop<T>(q: &RawArrayQueue<T>) -> T {
+    let mut b = Backoff::new();
+    loop {
+        if let Some(x) = q.pop() {
+            return x;
+        }
+        b.spin();
+    }
+}
+
+// ============================== (a) SINGLE-THREADED ==============================
+//
+// Alternating push/pop on one thread, so the structure stays near-empty
+// and never hits capacity edge cases -- isolates per-op overhead. Swept
+// across N (sub-queue count) per scheduler, even single-threaded, to see
+// how much of the overhead is fixed (visible at N=1, where sampling is
+// trivial) vs. scales with N (the actual d-sample comparison cost).
+
+const ST_SUB_CAP: usize = 128;
+
+macro_rules! bench_lope_single_threaded {
+    ($group:expr, $name:literal, $Sched:ty, [$($n:literal),+ $(,)?]) => {
+        $(
+            $group.throughput(Throughput::Elements(1));
+            $group.bench_function(BenchmarkId::new($name, $n), |b| {
+                let lope: InlineLope<QAdapter<u64, ST_SUB_CAP>, $Sched, $n, ST_SUB_CAP> =
+                    InlineLope::new();
+                let mut arm = lope.new_root();
+                b.iter(|| {
+                    arm.push(black_box(42u64));
+                    black_box(arm.pop())
+                });
+            });
+        )+
+    };
+}
+
+fn bench_single_threaded(c: &mut Criterion) {
+    let mut group = c.benchmark_group("single_threaded_push_pop");
+
+    group.throughput(Throughput::Elements(1));
+    group.bench_function("raw_array_queue", |b| {
+        let q = RawArrayQueue::<u64>::new(ST_SUB_CAP);
+        b.iter(|| {
+            q.push(black_box(42u64));
+            black_box(q.pop())
+        });
+    });
+
+    bench_lope_single_threaded!(group, "random", RandomAccess<SmallRng>, [1, 2, 4, 8]);
+    bench_lope_single_threaded!(group, "round_robin", RoundRobin, [1, 2, 4, 8]);
+    bench_lope_single_threaded!(group, "dcbo", DCBO<2>, [1, 2, 4, 8]);
+    bench_lope_single_threaded!(group, "dra", DRA<2>, [1, 2, 4, 8]);
+
+    group.finish();
+}
+
+// ============================== (b) MULTITHREADED ==============================
+//
+// n_subqueues == n_threads throughout, per your call. Raw baseline is one
+// shared ArrayQueue hammered by the same thread count, capacity-matched
+// (N * SUB_CAP) so it isn't handicapped on capacity alone -- the
+// comparison is meant to isolate scheduling/sharding benefit, not starve
+// the baseline. Each criterion "iteration" spawns the full thread set,
+// runs COUNT ops/thread, joins, and reports wall time -- iter_custom is
+// used so thread spawn/join cost is inside the timed region (it's the
+// real cost of using this shape concurrently) but batched sanely rather
+// than re-measuring a single op's spawn overhead.
+
+const MT_SUB_CAP: usize = 256;
+const MT_COUNT: usize = 20_000;
+
+macro_rules! bench_lope_mpsc {
+    ($group:expr, $name:literal, $Sched:ty, [$($n:literal),+ $(,)?]) => {
+        $(
+            $group.throughput(Throughput::Elements(($n * MT_COUNT) as u64));
+            $group.bench_function(BenchmarkId::new($name, $n), |b| {
+                b.iter_custom(|iters| {
+                    let mut total = Duration::ZERO;
+                    for _ in 0..iters {
+                        let lope: InlineLope<QAdapter<u64, MT_SUB_CAP>, $Sched, $n, MT_SUB_CAP> =
+                            InlineLope::new();
+                        let start = Instant::now();
+                        std::thread::scope(|scope| {
+                            for _ in 0..$n {
+                                let mut arm = lope.new_root();
+                                scope.spawn(move || {
+                                    for i in 0..MT_COUNT {
+                                        let mut b = Backoff::new();
+                                        while arm.push(i as u64).is_err() {
+                                            b.spin();
+                                        }
+                                    }
+                                });
+                            }
+                            let mut consumer = lope.new_root();
+                            for _ in 0..($n * MT_COUNT) {
+                                let mut b = Backoff::new();
+                                while consumer.pop().is_none() {
+                                    b.spin();
+                                }
+                            }
+                        });
+                        total += start.elapsed();
+                    }
+                    total
+                });
+            });
+        )+
+    };
+}
+
+macro_rules! bench_lope_mpmc {
+    ($group:expr, $name:literal, $Sched:ty, [$($n:literal),+ $(,)?]) => {
+        $(
+            $group.throughput(Throughput::Elements(($n * MT_COUNT) as u64));
+            $group.bench_function(BenchmarkId::new($name, $n), |b| {
+                b.iter_custom(|iters| {
+                    let mut total = Duration::ZERO;
+                    for _ in 0..iters {
+                        let lope: InlineLope<QAdapter<u64, MT_SUB_CAP>, $Sched, $n, MT_SUB_CAP> =
+                            InlineLope::new();
+                        let popped_total = AtomicUsize::new(0);
+                        let start = Instant::now();
+                        std::thread::scope(|scope| {
+                            for _ in 0..$n {
+                                let mut arm = lope.new_root();
+                                scope.spawn(move || {
+                                    for i in 0..MT_COUNT {
+                                        let mut b = Backoff::new();
+                                        while arm.push(i as u64).is_err() {
+                                            b.spin();
+                                        }
+                                    }
+                                });
+                            }
+                            for _ in 0..$n {
+                                let mut arm = lope.new_root();
+                                let popped_total = &popped_total;
+                                scope.spawn(move || {
+                                    let mut popped = 0usize;
+                                    while popped < MT_COUNT {
+                                        let mut b = Backoff::new();
+                                        if arm.pop().is_some() {
+                                            popped += 1;
+                                        } else {
+                                            b.spin();
+                                        }
+                                    }
+                                    popped_total.fetch_add(popped, Ordering::Relaxed);
+                                });
+                            }
+                        });
+                        total += start.elapsed();
+                        debug_assert_eq!(popped_total.load(Ordering::Relaxed), $n * MT_COUNT);
+                    }
+                    total
+                });
+            });
+        )+
+    };
+}
+
+fn bench_mpsc(c: &mut Criterion) {
+    let mut group = c.benchmark_group("mpsc");
+
+    macro_rules! bench_raw_mpsc {
+        ([$($n:literal),+ $(,)?]) => {
+            $(
+                group.throughput(Throughput::Elements(($n * MT_COUNT) as u64));
+                group.bench_function(BenchmarkId::new("raw_shared", $n), |b| {
+                    b.iter_custom(|iters| {
+                        let mut total = Duration::ZERO;
+                        for _ in 0..iters {
+                            let q = RawArrayQueue::<u64>::new($n * MT_SUB_CAP);
+                            let start = Instant::now();
+                            std::thread::scope(|scope| {
+                                for _ in 0..$n {
+                                    let q = &q;
+                                    scope.spawn(move || {
+                                        for i in 0..MT_COUNT {
+                                            retry_push(q, i as u64);
+                                        }
+                                    });
+                                }
+                                for _ in 0..($n * MT_COUNT) {
+                                    black_box(retry_pop(&q));
+                                }
+                            });
+                            total += start.elapsed();
+                        }
+                        total
+                    });
+                });
+            )+
+        };
+    }
+    bench_raw_mpsc!([1, 2, 4, 8]);
+
+    bench_lope_mpsc!(group, "random", RandomAccess<SmallRng>, [1, 2, 4, 8]);
+    bench_lope_mpsc!(group, "round_robin", RoundRobin, [1, 2, 4, 8]);
+    bench_lope_mpsc!(group, "dcbo", DCBO<2>, [1, 2, 4, 8]);
+    bench_lope_mpsc!(group, "dra", DRA<2>, [1, 2, 4, 8]);
+
+    group.finish();
+}
+
+fn bench_mpmc(c: &mut Criterion) {
+    let mut group = c.benchmark_group("mpmc");
+
+    macro_rules! bench_raw_mpmc {
+        ([$($n:literal),+ $(,)?]) => {
+            $(
+                group.throughput(Throughput::Elements(($n * MT_COUNT) as u64));
+                group.bench_function(BenchmarkId::new("raw_shared", $n), |b| {
+                    b.iter_custom(|iters| {
+                        let mut total = Duration::ZERO;
+                        for _ in 0..iters {
+                            let q = RawArrayQueue::<u64>::new($n * MT_SUB_CAP);
+                            let start = Instant::now();
+                            std::thread::scope(|scope| {
+                                for _ in 0..$n {
+                                    let q = &q;
+                                    scope.spawn(move || {
+                                        for i in 0..MT_COUNT {
+                                            retry_push(q, i as u64);
+                                        }
+                                    });
+                                }
+                                for _ in 0..$n {
+                                    let q = &q;
+                                    scope.spawn(move || {
+                                        for _ in 0..MT_COUNT {
+                                            black_box(retry_pop(q));
+                                        }
+                                    });
+                                }
+                            });
+                            total += start.elapsed();
+                        }
+                        total
+                    });
+                });
+            )+
+        };
+    }
+    bench_raw_mpmc!([1, 2, 4, 8]);
+
+    bench_lope_mpmc!(group, "random", RandomAccess<SmallRng>, [1, 2, 4, 8]);
+    bench_lope_mpmc!(group, "round_robin", RoundRobin, [1, 2, 4, 8]);
+    bench_lope_mpmc!(group, "dcbo", DCBO<2>, [1, 2, 4, 8]);
+    bench_lope_mpmc!(group, "dra", DRA<2>, [1, 2, 4, 8]);
+
+    group.finish();
+}
+
+criterion_group!(benches, bench_single_threaded, bench_mpsc, bench_mpmc);
+criterion_main!(benches);
