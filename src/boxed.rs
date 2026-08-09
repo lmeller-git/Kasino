@@ -1,3 +1,4 @@
+use alloc::boxed::Box;
 use core::ops::{Index, IndexMut};
 
 use crate::{
@@ -9,7 +10,7 @@ use crate::{
 
 #[derive(PartialEq, Eq, Debug, Clone)]
 pub(crate) struct BoxedStorage<T> {
-    arr: boxcar::Vec<T>,
+    arr: Box<[T]>,
 }
 
 impl<T: Default> Default for BoxedStorage<T> {
@@ -30,14 +31,14 @@ impl<T> BoxedStorage<T> {
 
 impl<T> StorageBackend<T> for BoxedStorage<T> {
     fn len(&self) -> usize {
-        self.arr.count()
+        self.arr.len()
     }
 
     fn iter<'a>(&'a self) -> impl Iterator<Item = &'a T>
     where
         T: 'a,
     {
-        self.arr.iter().map(|(_, item)| item)
+        self.arr.iter()
     }
 }
 
