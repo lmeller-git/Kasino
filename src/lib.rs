@@ -20,6 +20,9 @@ pub mod schedule;
 pub mod storage;
 mod sync;
 
+#[cfg(test)]
+mod tests;
+
 #[cfg(feature = "alloc")]
 pub use boxed::*;
 pub use construction::LopeCoreArm;

@@ -5,8 +5,6 @@ use crate::{
     schedule::{Hooked, Schedule},
     storage::StorageBackend,
 };
-#[cfg(feature = "alloc")]
-use crate::{NewSized, storage::GrowingBackend};
 
 pub(crate) const DEFAULT_QUEUE_CAP: usize = 32;
 
@@ -41,22 +39,6 @@ where
             parent: self,
             arm: self.scheduler.create_arm(),
         }
-    }
-}
-
-#[cfg(feature = "alloc")]
-impl<Q, S, B, C, const SUB_CAP: usize> LopeCore<Q, S, B, C, SUB_CAP>
-where
-    Q: NewSized<SUB_CAP>,
-    S: Schedule<Q>,
-    B: GrowingBackend<Q>,
-    C: GrowingBackend<<S::Arm as Hooked>::State>,
-{
-    pub(crate) fn add_queue(&self) {
-        self.sub_collections
-            .push(<Q as NewSized<SUB_CAP>>::with_capacity());
-        self.collection_state
-            .push(<S::Arm as Hooked>::State::default());
     }
 }
 
@@ -125,15 +107,27 @@ where
     }
 }
 
-#[cfg(feature = "alloc")]
+#[cfg(test)]
 impl<'a, Q, S, B, C, const SUB_CAP: usize> LopeCoreArm<'a, Q, S, B, C, SUB_CAP>
 where
-    Q: NewSized<SUB_CAP>,
+    Q: Collection,
     S: Schedule<Q>,
-    B: GrowingBackend<Q>,
-    C: GrowingBackend<<S::Arm as Hooked>::State>,
+    B: StorageBackend<Q>,
+    C: StorageBackend<<S::Arm as Hooked>::State>,
 {
-    pub fn add_queue(&self) {
-        self.parent.add_queue();
+    #[allow(unused)]
+    pub(crate) fn pop_with_idx(&mut self) -> Option<(Q::Item, usize)> {
+        let i = self
+            .parent
+            .scheduler
+            .choose_enq(&self.parent.collection_state, &mut self.arm);
+        let r = self.parent.sub_collections[i].pop();
+        if r.is_some() {
+            self.arm.on_deq(&self.parent.collection_state[i]);
+        }
+        // TODO: may want to do a double-collect pass here to grant empty-linearizability.
+        // But this is dependant on schedule and may not always be possible (for example on random schedule).
+        // Is also not strictly necessary and reduces performance
+        r.map(|r| (r, i))
     }
 }

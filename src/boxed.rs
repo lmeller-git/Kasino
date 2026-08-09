@@ -1,7 +1,5 @@
 use core::ops::{Index, IndexMut};
 
-#[cfg(feature = "alloc")]
-use crate::storage::GrowingBackend;
 use crate::{
     NewSized,
     construction::{DEFAULT_QUEUE_CAP, LopeCore, LopeCoreArm},
@@ -57,13 +55,6 @@ impl<T> IndexMut<usize> for BoxedStorage<T> {
     }
 }
 
-#[cfg(feature = "alloc")]
-impl<T> GrowingBackend<T> for BoxedStorage<T> {
-    fn push(&self, item: T) {
-        self.arr.push(item);
-    }
-}
-
 /// a handle to the core subcollection container, which is stored dynamically
 #[allow(type_alias_bounds, private_interfaces)]
 pub type BoxedArm<'a, Q, S: Schedule<Q>, const SUB_CAP: usize = DEFAULT_QUEUE_CAP> =
@@ -96,10 +87,5 @@ where
     #[allow(private_interfaces)]
     pub fn new_root(&self) -> BoxedArm<'_, Q, S, SUB_CAP> {
         self.raw.new_root()
-    }
-
-    /// adds a new subcollection to this container, growing its cap by SUB_CAP
-    pub fn add_queue(&self) {
-        self.raw.add_queue();
     }
 }

@@ -15,10 +15,3 @@ pub trait StorageBackend<T>: Index<usize, Output = T> + IndexMut<usize> {
         self.len() == 0
     }
 }
-
-/// a storage that may dynamically grow
-#[cfg(feature = "alloc")]
-pub trait GrowingBackend<T>: StorageBackend<T> {
-    /// pushes an item to the storage, which may grow it
-    fn push(&self, item: T);
-}
