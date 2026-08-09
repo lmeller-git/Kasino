@@ -80,7 +80,7 @@ where
         let i = self
             .parent
             .scheduler
-            .choose_enq(&self.parent.collection_state, &mut self.arm);
+            .choose_deq(&self.parent.collection_state, &mut self.arm);
         let r = self.parent.sub_collections[i].pop();
         if r.is_some() {
             self.arm.on_deq(&self.parent.collection_state[i]);
