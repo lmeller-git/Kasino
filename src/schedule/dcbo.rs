@@ -14,6 +14,7 @@ pub struct DCBOState {
     deq: AtomicUsize,
 }
 
+/// A DCBO scheduler
 #[derive(Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy)]
 pub struct DCBO<const CHOOSE: usize = 2>;
 

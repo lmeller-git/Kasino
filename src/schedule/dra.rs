@@ -14,6 +14,7 @@ pub struct DRAState {
     deq: AtomicUsize,
 }
 
+/// A DRA scheduler
 #[derive(Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy)]
 pub struct DRA<const CHOOSE: usize = 2>;
 

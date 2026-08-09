@@ -3,6 +3,7 @@ use crate::{
     storage::StorageBackend,
 };
 
+/// a round robin scheduler
 #[derive(Default, PartialEq, Eq, PartialOrd, Ord, Debug, Clone, Copy, Hash)]
 pub struct RoundRobin;
 

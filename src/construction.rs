@@ -60,6 +60,7 @@ where
     }
 }
 
+/// An owned handle into the core collection. May be used for mutabel access of some fields
 #[derive(PartialEq, Eq, PartialOrd, Ord, Debug, Hash)]
 pub struct LopeCoreArm<'a, Q, S: Schedule<Q>, B, C, const SUB_CAP: usize = DEFAULT_QUEUE_CAP> {
     parent: &'a LopeCore<Q, S, B, C, SUB_CAP>,
@@ -73,6 +74,7 @@ where
     B: StorageBackend<Q>,
     C: StorageBackend<<S::Arm as Hooked>::State>,
 {
+    /// fork this handle into a new one
     pub fn fork(&mut self) -> Self {
         Self {
             parent: self.parent,
@@ -80,6 +82,7 @@ where
         }
     }
 
+    /// push an item into one of the underlying subcollections
     pub fn push(&mut self, item: Q::Item) -> Result<(), Q::Item> {
         let i = self
             .parent
@@ -90,6 +93,7 @@ where
         Ok(())
     }
 
+    /// pop and item from one of the underlying subcollections
     pub fn pop(&mut self) -> Option<Q::Item> {
         let i = self
             .parent
@@ -105,14 +109,17 @@ where
         r
     }
 
+    /// the total len of all active subcollections
     pub fn len(&self) -> usize {
         self.parent.sub_collections.iter().map(|q| q.len()).sum()
     }
 
+    /// the total capacity of all active subcollections
     pub fn cap(&self) -> usize {
         self.parent.sub_collections.iter().map(|q| q.cap()).sum()
     }
 
+    /// are all active subcollections empty?
     pub fn is_empty(&self) -> bool {
         self.len() == 0
     }

@@ -5,6 +5,8 @@ use crate::{
     storage::StorageBackend,
 };
 
+/// a random scheduler
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct RandomAccess<R> {
     rng: R,
 }

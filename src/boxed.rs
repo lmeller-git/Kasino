@@ -64,10 +64,12 @@ impl<T> GrowingBackend<T> for BoxedStorage<T> {
     }
 }
 
+/// a handle to the core subcollection container, which is stored dynamically
 #[allow(type_alias_bounds, private_interfaces)]
 pub type BoxedArm<'a, Q, S: Schedule<Q>, const SUB_CAP: usize = DEFAULT_QUEUE_CAP> =
     LopeCoreArm<'a, Q, S, BoxedStorage<Q>, BoxedStorage<<S::Arm as Hooked>::State>, SUB_CAP>;
 
+/// a subcollection container, which is stored dynamically
 pub struct BoxedLope<Q, S: Schedule<Q>, const SUB_CAP: usize = DEFAULT_QUEUE_CAP> {
     raw: LopeCore<Q, S, BoxedStorage<Q>, BoxedStorage<<S::Arm as Hooked>::State>, SUB_CAP>,
 }
@@ -77,6 +79,7 @@ where
     Q: NewSized<SUB_CAP>,
     S: Schedule<Q> + Default,
 {
+    /// constructs a new `BoxedLop`
     pub fn new(n_cores: usize) -> Self {
         Self {
             raw: LopeCore::new_with(
@@ -89,11 +92,13 @@ where
         }
     }
 
+    /// constructs a new handle to this container
     #[allow(private_interfaces)]
     pub fn new_root(&self) -> BoxedArm<'_, Q, S, SUB_CAP> {
         self.raw.new_root()
     }
 
+    /// adds a new subcollection to this container, growing its cap by SUB_CAP
     pub fn add_queue(&self) {
         self.raw.add_queue();
     }

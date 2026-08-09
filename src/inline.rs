@@ -54,6 +54,7 @@ impl<T, const N: usize> IndexMut<usize> for InlineStorage<T, N> {
     }
 }
 
+/// A handle to the core subcollection storage that is stored inline
 #[allow(type_alias_bounds, private_interfaces)]
 pub type InlineArm<
     'a,
@@ -70,6 +71,7 @@ pub type InlineArm<
     SUB_CAP,
 >;
 
+/// a subcollections storage that is stored inline
 pub struct InlineLope<Q, S: Schedule<Q>, const N: usize, const SUB_CAP: usize = DEFAULT_QUEUE_CAP> {
     raw: LopeCore<Q, S, InlineStorage<Q, N>, InlineStorage<<S::Arm as Hooked>::State, N>, SUB_CAP>,
 }
@@ -79,6 +81,7 @@ where
     Q: NewSized<SUB_CAP>,
     S: Schedule<Q> + Default,
 {
+    /// constructs a new `InlineLope`
     pub fn new() -> Self {
         Self {
             raw: LopeCore::new_with(
@@ -88,6 +91,7 @@ where
         }
     }
 
+    /// constructs a new handle to this collection
     #[allow(private_interfaces)]
     pub fn new_root(&self) -> InlineArm<'_, Q, S, N, SUB_CAP> {
         self.raw.new_root()
