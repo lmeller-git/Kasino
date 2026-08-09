@@ -1,3 +1,10 @@
+[![Codecov](https://codecov.io/github/lmeller-git/lope/coverage.svg?branch=main)](https://codecov.io/gh/lmeller-git/lope)
+![CI Test](https://github.com/lmeller-git/lope/actions/workflows/test.yml/badge.svg?branch=main)
+![Safety Test](https://github.com/lmeller-git/lope/actions/workflows/safety.yml/badge.svg?branch=main)
+![no_std Test](https://github.com/lmeller-git/lope/actions/workflows/nostd.yml/badge.svg?branch=main)
+[![Crates.io](https://img.shields.io/crates/v/lope)](https://crates.io/crates/lope)
+[![Docs.rs](https://docs.rs/lope/badge.svg)](https://docs.rs/lope)
+
 # Lope
 
 
