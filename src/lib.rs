@@ -15,7 +15,7 @@
 //! # use std::collections::VecDeque;
 //! #
 //! # struct MyQueue<T> { deque: Mutex<VecDeque<T>>, cap: usize }
-//! # impl<T> BoundedCollection for MyQueue<T> {
+//! # impl<T> Collection for MyQueue<T> {
 //! #     type Item = T;
 //! #     fn push(&self, item: T) -> Result<(), T> {
 //! #         let mut g = self.deque.lock().unwrap();
@@ -26,16 +26,20 @@
 //! #     fn cap(&self) -> usize { self.cap }
 //! # }
 //! # impl<T, const N: usize> NewSized<N> for MyQueue<T> {
-//! #     fn with_capacity() -> Self { Self { dequeue: Mutex::new(VecDeque::with_capacity(N)), cap: N } }
+//! #     fn with_capacity() -> Self { Self { deque: Mutex::new(VecDeque::with_capacity(N)), cap: N } }
 //! # }
-//! use lope::{InlineLope, scheduler::DCBO};
+//! use lope::{InlineLope, schedule::DCBO};
 //! // Create a Lope wrapping your datastructure
 //! let container = InlineLope::<MyQueue<i32>, DCBO, 8>::new();
+//! // Create a new owned handle to this container
+//! let mut my_handle = container.new_root();
+//! // fork this handle
+//! let mut my_handle2 = my_handle.fork();
 //!
 //! // It implements all operations of a Collection
-//! assert!(container.push(42).is_ok());
-//! assert!(container.push(10).is_ok());
-//! _ = container.pop();
+//! assert!(my_handle.push(42).is_ok());
+//! assert!(my_handle2.push(10).is_ok());
+//! _ = my_handle.pop();
 //! ```
 //!
 //! ## Property preservation

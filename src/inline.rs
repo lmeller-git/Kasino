@@ -7,8 +7,9 @@ use crate::{
     storage::StorageBackend,
 };
 
+/// an array
 #[derive(PartialEq, Eq, Debug, Clone, PartialOrd, Ord, Hash, Copy)]
-pub(crate) struct InlineStorage<T, const N: usize> {
+pub struct InlineStorage<T, const N: usize> {
     arr: [T; N],
 }
 
@@ -32,6 +33,7 @@ impl<T, const N: usize> StorageBackend<T> for InlineStorage<T, N> {
         self.arr.iter()
     }
 }
+
 impl<T, const N: usize> InlineStorage<T, N> {
     fn from_fn(f: impl Fn(usize) -> T) -> Self {
         InlineStorage {
@@ -55,7 +57,7 @@ impl<T, const N: usize> IndexMut<usize> for InlineStorage<T, N> {
 }
 
 /// A handle to the core subcollection storage that is stored inline
-#[allow(type_alias_bounds, private_interfaces)]
+#[allow(type_alias_bounds)]
 pub type InlineArm<
     'a,
     Q,
@@ -92,7 +94,6 @@ where
     }
 
     /// constructs a new handle to this collection
-    #[allow(private_interfaces)]
     pub fn new_root(&self) -> InlineArm<'_, Q, S, N, SUB_CAP> {
         self.raw.new_root()
     }

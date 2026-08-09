@@ -8,8 +8,9 @@ use crate::{
     storage::StorageBackend,
 };
 
+/// a dynamicaly stored slice
 #[derive(PartialEq, Eq, Debug, Clone)]
-pub(crate) struct BoxedStorage<T> {
+pub struct BoxedStorage<T> {
     arr: Box<[T]>,
 }
 
@@ -57,7 +58,7 @@ impl<T> IndexMut<usize> for BoxedStorage<T> {
 }
 
 /// a handle to the core subcollection container, which is stored dynamically
-#[allow(type_alias_bounds, private_interfaces)]
+#[allow(type_alias_bounds)]
 pub type BoxedArm<'a, Q, S: Schedule<Q>, const SUB_CAP: usize = DEFAULT_QUEUE_CAP> =
     LopeCoreArm<'a, Q, S, BoxedStorage<Q>, BoxedStorage<<S::Arm as Hooked>::State>, SUB_CAP>;
 
@@ -85,7 +86,6 @@ where
     }
 
     /// constructs a new handle to this container
-    #[allow(private_interfaces)]
     pub fn new_root(&self) -> BoxedArm<'_, Q, S, SUB_CAP> {
         self.raw.new_root()
     }
