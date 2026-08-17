@@ -97,7 +97,7 @@ macro_rules! bench_lope_single_threaded {
                     InlineLope::new();
                 let mut arm = lope.new_root();
                 b.iter(|| {
-                    arm.push(black_box(42u64));
+                    _ = arm.push(black_box(42u64));
                     black_box(arm.pop())
                 });
             });
@@ -112,7 +112,7 @@ fn bench_single_threaded(c: &mut Criterion) {
     group.bench_function("raw_array_queue", |b| {
         let q = RawArrayQueue::<u64>::new(SUB_QUEUE_COUNT);
         b.iter(|| {
-            q.push(black_box(42u64));
+            _ = q.push(black_box(42u64));
             black_box(q.pop())
         });
     });

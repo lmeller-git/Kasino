@@ -5,7 +5,7 @@ mod dra;
 mod random;
 mod round_robin;
 
-use std::ops::{Deref, DerefMut};
+use core::ops::{Deref, DerefMut};
 
 use crossbeam_utils::CachePadded;
 pub use dcbo::DCBO;
