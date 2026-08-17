@@ -1,7 +1,7 @@
 use rand::{RngExt, SeedableRng, rngs::SmallRng};
 
 use crate::{
-    schedule::{Hooked, Schedule},
+    schedule::{Hooked, InstrumentedState, NoPad, Schedule},
     storage::StorageBackend,
 };
 
@@ -52,5 +52,5 @@ impl<T> Schedule<T> for RandomAccess<SmallRng> {
 }
 
 impl Hooked for RandomAccess<SmallRng> {
-    type State = ();
+    type State = NoPad<InstrumentedState<()>>;
 }

@@ -27,7 +27,7 @@ all-features = true
 [workspace]
 members = [
   ".",
-  "profiling"
+  "profiling",
 ]
 
 [workspace.package]

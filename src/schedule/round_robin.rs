@@ -1,5 +1,5 @@
 use crate::{
-    schedule::{Hooked, Schedule},
+    schedule::{Hooked, InstrumentedState, NoPad, Schedule},
     storage::StorageBackend,
 };
 
@@ -50,5 +50,5 @@ impl<T> Schedule<T> for RoundRobin {
 }
 
 impl Hooked for RRArm {
-    type State = ();
+    type State = NoPad<InstrumentedState<()>>;
 }

@@ -32,6 +32,16 @@ where
 
 impl<Q, S, B, C, const SUB_CAP: usize> LopeCore<Q, S, B, C, SUB_CAP>
 where
+    B: StorageBackend<Q>,
+{
+    /// returns the number of subqueues
+    pub(crate) fn nbr_subqueues(&self) -> usize {
+        self.sub_collections.len()
+    }
+}
+
+impl<Q, S, B, C, const SUB_CAP: usize> LopeCore<Q, S, B, C, SUB_CAP>
+where
     S: Schedule<Q>,
 {
     pub(crate) fn new_root(&self) -> LopeCoreArm<'_, Q, S, B, C, SUB_CAP> {
@@ -99,6 +109,38 @@ where
         None
     }
 
+    /// pops an item and returns the associated state
+    pub fn pop_with_info(&mut self) -> (Option<Q::Item>, <S::Arm as Hooked>::State)
+    where
+        <S::Arm as Hooked>::State: Clone,
+    {
+        let i = self
+            .parent
+            .scheduler
+            .choose_deq(&self.parent.collection_state, &mut self.arm);
+        if let Some(item) = self.parent.sub_collections[i].pop() {
+            self.arm.on_deq(&self.parent.collection_state[i]);
+            return (Some(item), self.parent.collection_state[i].clone());
+        }
+
+        // TODO: may want to do a double-collect pass here to grant empty-linearizability.
+        // But this is dependant on schedule and may not always be possible (for example on random schedule).
+        // Is also not strictly necessary and reduces performance
+        for (i, q) in self.parent.sub_collections.iter().enumerate() {
+            if let Some(item) = q.pop() {
+                self.arm.on_deq(&self.parent.collection_state[i]);
+                return (Some(item), self.parent.collection_state[i].clone());
+            }
+        }
+
+        (None, self.parent.collection_state[i].clone())
+    }
+
+    /// state of the scheduler/queues
+    pub fn state(&self) -> impl Iterator<Item = &<S::Arm as Hooked>::State> {
+        self.parent.collection_state.iter()
+    }
+
     /// the total len of all active subcollections
     pub fn len(&self) -> usize {
         self.parent.sub_collections.iter().map(|q| q.len()).sum()
@@ -112,6 +154,17 @@ where
     /// are all active subcollections empty?
     pub fn is_empty(&self) -> bool {
         self.len() == 0
+    }
+}
+
+impl<'a, Q, S, B, C, const SUB_CAP: usize> LopeCoreArm<'a, Q, S, B, C, SUB_CAP>
+where
+    B: StorageBackend<Q>,
+    S: Schedule<Q>,
+{
+    /// returns the number of subqueues
+    pub fn nbr_subqueues(&self) -> usize {
+        self.parent.nbr_subqueues()
     }
 }
 

@@ -1,6 +1,7 @@
 use std::{
     hint::black_box,
     sync::atomic::{AtomicUsize, Ordering},
+    thread,
     time::{Duration, Instant},
 };
 
@@ -14,17 +15,14 @@ use lope::{
 };
 use rand::rngs::SmallRng;
 
-struct Backoff(u32);
+struct Backoff();
 impl Backoff {
     fn new() -> Self {
-        Self(1)
+        Self()
     }
 
     fn spin(&mut self) {
-        for _ in 0..self.0 {
-            std::hint::spin_loop();
-        }
-        self.0 = (self.0 * 2).min(1024);
+        thread::yield_now();
     }
 }
 
@@ -87,7 +85,8 @@ fn retry_pop<T>(q: &RawArrayQueue<T>) -> T {
 // how much of the overhead is fixed (visible at N=1, where sampling is
 // trivial) vs. scales with N (the actual d-sample comparison cost).
 
-const ST_SUB_CAP: usize = 128;
+const ST_SUB_CAP: usize = 64;
+const SUB_QUEUE_COUNT: usize = 32;
 
 macro_rules! bench_lope_single_threaded {
     ($group:expr, $name:literal, $Sched:ty, [$($n:literal),+ $(,)?]) => {
@@ -111,17 +110,17 @@ fn bench_single_threaded(c: &mut Criterion) {
 
     group.throughput(Throughput::Elements(1));
     group.bench_function("raw_array_queue", |b| {
-        let q = RawArrayQueue::<u64>::new(ST_SUB_CAP);
+        let q = RawArrayQueue::<u64>::new(SUB_QUEUE_COUNT);
         b.iter(|| {
             q.push(black_box(42u64));
             black_box(q.pop())
         });
     });
 
-    bench_lope_single_threaded!(group, "random", RandomAccess<SmallRng>, [1, 2, 4, 8]);
-    bench_lope_single_threaded!(group, "round_robin", RoundRobin, [1, 2, 4, 8]);
-    bench_lope_single_threaded!(group, "dcbo", DCBO<2>, [1, 2, 4, 8]);
-    bench_lope_single_threaded!(group, "dra", DRA<2>, [1, 2, 4, 8]);
+    bench_lope_single_threaded!(group, "random", RandomAccess<SmallRng>, [1, 2, 4]);
+    bench_lope_single_threaded!(group, "round_robin", RoundRobin, [1, 2, 4]);
+    bench_lope_single_threaded!(group, "dcbo", DCBO<2>, [1, 2, 4]);
+    bench_lope_single_threaded!(group, "dra", DRA<2>, [1, 2, 4]);
 
     group.finish();
 }
@@ -138,7 +137,7 @@ fn bench_single_threaded(c: &mut Criterion) {
 // real cost of using this shape concurrently) but batched sanely rather
 // than re-measuring a single op's spawn overhead.
 
-const MT_SUB_CAP: usize = 256;
+const MT_SUB_CAP: usize = 128;
 const MT_COUNT: usize = 20_000;
 
 macro_rules! bench_lope_mpsc {
@@ -149,7 +148,7 @@ macro_rules! bench_lope_mpsc {
                 b.iter_custom(|iters| {
                     let mut total = Duration::ZERO;
                     for _ in 0..iters {
-                        let lope: InlineLope<QAdapter<u64, MT_SUB_CAP>, $Sched, $n, MT_SUB_CAP> =
+                        let lope: InlineLope<QAdapter<u64, MT_SUB_CAP>, $Sched, SUB_QUEUE_COUNT, MT_SUB_CAP> =
                             InlineLope::new();
                         let start = Instant::now();
                         std::thread::scope(|scope| {
@@ -189,7 +188,7 @@ macro_rules! bench_lope_mpmc {
                 b.iter_custom(|iters| {
                     let mut total = Duration::ZERO;
                     for _ in 0..iters {
-                        let lope: InlineLope<QAdapter<u64, MT_SUB_CAP>, $Sched, $n, MT_SUB_CAP> =
+                        let lope: InlineLope<QAdapter<u64, MT_SUB_CAP>, $Sched, SUB_QUEUE_COUNT, MT_SUB_CAP> =
                             InlineLope::new();
                         let popped_total = AtomicUsize::new(0);
                         let start = Instant::now();
@@ -243,7 +242,7 @@ fn bench_mpsc(c: &mut Criterion) {
                     b.iter_custom(|iters| {
                         let mut total = Duration::ZERO;
                         for _ in 0..iters {
-                            let q = RawArrayQueue::<u64>::new($n * MT_SUB_CAP);
+                            let q = RawArrayQueue::<u64>::new(SUB_QUEUE_COUNT * MT_SUB_CAP);
                             let start = Instant::now();
                             std::thread::scope(|scope| {
                                 for _ in 0..$n {
@@ -287,7 +286,7 @@ fn bench_mpmc(c: &mut Criterion) {
                     b.iter_custom(|iters| {
                         let mut total = Duration::ZERO;
                         for _ in 0..iters {
-                            let q = RawArrayQueue::<u64>::new($n * MT_SUB_CAP);
+                            let q = RawArrayQueue::<u64>::new(SUB_QUEUE_COUNT * MT_SUB_CAP);
                             let start = Instant::now();
                             std::thread::scope(|scope| {
                                 for _ in 0..$n {
