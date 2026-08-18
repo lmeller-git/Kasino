@@ -43,7 +43,8 @@ where
 
 impl<Q, S, B, C, const SUB_CAP: usize> LopeCore<Q, S, B, C, SUB_CAP>
 where
-    S: Schedule,
+    S: Schedule<Q>,
+    Q: Collection,
 {
     pub(crate) fn new_root(&self) -> LopeCoreArm<'_, Q, S, B, C, SUB_CAP> {
         LopeCoreArm {
@@ -55,7 +56,14 @@ where
 
 /// An owned handle into the core collection. May be used for mutabel access of some fields
 #[derive(PartialEq, Eq, PartialOrd, Ord, Debug, Hash)]
-pub struct LopeCoreArm<'a, Q, S: Schedule, B, C, const SUB_CAP: usize = DEFAULT_QUEUE_CAP> {
+pub struct LopeCoreArm<
+    'a,
+    Q: Collection,
+    S: Schedule<Q>,
+    B,
+    C,
+    const SUB_CAP: usize = DEFAULT_QUEUE_CAP,
+> {
     parent: &'a LopeCore<Q, S, B, C, SUB_CAP>,
     arm: S::Arm,
 }
@@ -63,7 +71,7 @@ pub struct LopeCoreArm<'a, Q, S: Schedule, B, C, const SUB_CAP: usize = DEFAULT_
 impl<'a, Q, S, B, C, const SUB_CAP: usize> LopeCoreArm<'a, Q, S, B, C, SUB_CAP>
 where
     Q: Collection,
-    S: Schedule,
+    S: Schedule<Q>,
     B: StorageBackend<Q>,
     C: StorageBackend<<S::Arm as Hooked>::State>,
 {
@@ -76,10 +84,13 @@ where
     }
 
     /// push an item into one of the underlying subcollections
-    pub fn offer(
-        &mut self,
-        item: <Q::OfferIO as IODescription>::Input,
-    ) -> Result<<Q::OfferIO as IODescription>::Output, <Q::OfferIO as IODescription>::Error> {
+    pub fn offer<'b, 'c>(
+        &'c mut self,
+        item: <Q::OfferIO as IODescription>::Input<'b>,
+    ) -> Result<
+        <Q::OfferIO as IODescription>::Output<'b, 'c>,
+        <Q::OfferIO as IODescription>::Error<'b, 'c>,
+    > {
         let i = self
             .parent
             .scheduler
@@ -97,10 +108,13 @@ where
     }
 
     /// pop and item from one of the underlying subcollections
-    pub fn poll(
-        &mut self,
-        input: <Q::PollIO as IODescription>::Input,
-    ) -> Result<<Q::PollIO as IODescription>::Output, <Q::PollIO as IODescription>::Error> {
+    pub fn poll<'b, 'c>(
+        &'c mut self,
+        input: <Q::PollIO as IODescription>::Input<'b>,
+    ) -> Result<
+        <Q::PollIO as IODescription>::Output<'b, 'c>,
+        <Q::PollIO as IODescription>::Error<'b, 'c>,
+    > {
         let i = self
             .parent
             .scheduler
@@ -129,11 +143,14 @@ where
 
     /// pops an item and returns the associated state
     #[allow(clippy::type_complexity)]
-    pub fn poll_with_info(
-        &mut self,
-        input: <Q::PollIO as IODescription>::Input,
+    pub fn poll_with_info<'b, 'c>(
+        &'c mut self,
+        input: <Q::PollIO as IODescription>::Input<'b>,
     ) -> (
-        Result<<Q::PollIO as IODescription>::Output, <Q::PollIO as IODescription>::Error>,
+        Result<
+            <Q::PollIO as IODescription>::Output<'b, 'c>,
+            <Q::PollIO as IODescription>::Error<'b, 'c>,
+        >,
         <S::Arm as Hooked>::State,
     )
     where
@@ -189,7 +206,8 @@ where
 impl<'a, Q, S, B, C, const SUB_CAP: usize> LopeCoreArm<'a, Q, S, B, C, SUB_CAP>
 where
     B: StorageBackend<Q>,
-    S: Schedule,
+    S: Schedule<Q>,
+    Q: Collection,
 {
     /// returns the number of subqueues
     pub fn nbr_subqueues(&self) -> usize {
@@ -201,18 +219,20 @@ where
 impl<'a, Q, S, B, C, const SUB_CAP: usize> LopeCoreArm<'a, Q, S, B, C, SUB_CAP>
 where
     Q: Collection,
-    S: Schedule,
+    S: Schedule<Q>,
     B: StorageBackend<Q>,
     C: StorageBackend<<S::Arm as Hooked>::State>,
 {
     /// polls and returns the index of the shard from which we polled
     #[allow(unused)]
     #[allow(clippy::type_complexity)]
-    pub fn poll_with_idx(
-        &mut self,
-        input: <Q::PollIO as IODescription>::Input,
-    ) -> Result<(<Q::PollIO as IODescription>::Output, usize), <Q::PollIO as IODescription>::Error>
-    {
+    pub fn poll_with_idx<'b, 'c>(
+        &'c mut self,
+        input: <Q::PollIO as IODescription>::Input<'b>,
+    ) -> Result<
+        (<Q::PollIO as IODescription>::Output<'b, 'c>, usize),
+        <Q::PollIO as IODescription>::Error<'b, 'c>,
+    > {
         let i = self
             .parent
             .scheduler

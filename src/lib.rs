@@ -17,26 +17,26 @@
 //! #
 //! # struct QueuePushIO<T>(PhantomData<T>);
 //! # impl<T> IODescription for QueuePushIO<T> {
-//! #     type Input = T;
-//! #     type Output = ();
-//! #     type Error = T;
+//! #     type Input<'a> = T;
+//! #     type Output<'a, 'b> = ();
+//! #     type Error<'a, 'b> = T;
 //! # }
 //! # struct QueuePollIO<T>(PhantomData<T>);
 //! # impl<T> IODescription for QueuePollIO<T> {
-//! #     type Input = ();
-//! #     type Output = T;
-//! #     type Error = ();
+//! #     type Input<'a> = ();
+//! #     type Output<'a, 'b> = T;
+//! #     type Error<'a, 'b> = ();
 //! # }
 //! #
 //! # struct MyQueue<T> { deque: Mutex<VecDeque<T>>, cap: usize }
 //! # impl<T> Collection for MyQueue<T> {
 //! #     type PollIO = QueuePollIO<T>;
 //! #     type OfferIO = QueuePushIO<T>;
-//! #     fn offer(&self, item: T) -> Result<(), T> {
+//! #     fn offer<'a, 'b>(&'b self, item: <Self::OfferIO as IODescription>::Input<'a>) -> Result<<Self::OfferIO as IODescription>::Output<'a, 'b>, <Self::OfferIO as IODescription>::Error<'a, 'b>> {
 //! #         let mut g = self.deque.lock().unwrap();
 //! #         if g.len() >= self.cap { Err(item) } else { g.push_back(item); Ok(()) }
 //! #     }
-//! #     fn poll(&self, input: ()) -> Result<T, ()> { self.deque.lock().unwrap().pop_front().ok_or(()) }
+//! #     fn poll<'a, 'b>(&'b self, input: <Self::PollIO as IODescription>::Input<'a>) -> Result<<Self::PollIO as IODescription>::Output<'a, 'b>, <Self::PollIO as IODescription>::Error<'a, 'b>> { self.deque.lock().unwrap().pop_front().ok_or(()) }
 //! #     fn len(&self) -> usize { self.deque.lock().unwrap().len() }
 //! #     fn cap(&self) -> usize { self.cap }
 //! # }
@@ -141,32 +141,45 @@ pub use inline::*;
 /// Description about the surface of a failable method
 pub trait IODescription {
     /// The input
-    type Input;
+    type Input<'a>;
     /// The successful output
-    type Output;
+    type Output<'io, 'shard>
+    where
+        Self: 'shard;
     /// the error
-    type Error;
+    type Error<'io, 'shard>
+    where
+        Self: 'shard;
 }
 
 /// A collection that supports `push` and `pop` operations.
 ///
 /// the specification ordering of this collection may influence the rank error and delay of the sharded version.
-pub trait Collection {
+pub trait Collection
+where
+    for<'a> <Self::PollIO as IODescription>::Input<'a>: Copy,
+{
     /// The item stored in this collection.
     type OfferIO: IODescription;
     /// the contract of poll
-    type PollIO: IODescription<Input: Copy>;
+    type PollIO: IODescription;
 
     /// pushes an item into the collection
-    fn offer(
-        &self,
-        item: <Self::OfferIO as IODescription>::Input,
-    ) -> Result<<Self::OfferIO as IODescription>::Output, <Self::OfferIO as IODescription>::Error>;
+    fn offer<'io, 'shard>(
+        &'shard self,
+        item: <Self::OfferIO as IODescription>::Input<'io>,
+    ) -> Result<
+        <Self::OfferIO as IODescription>::Output<'io, 'shard>,
+        <Self::OfferIO as IODescription>::Error<'io, 'shard>,
+    >;
     /// pops an item from the collection
-    fn poll(
-        &self,
-        input: <Self::PollIO as IODescription>::Input,
-    ) -> Result<<Self::PollIO as IODescription>::Output, <Self::PollIO as IODescription>::Error>;
+    fn poll<'io, 'shard>(
+        &'shard self,
+        input: <Self::PollIO as IODescription>::Input<'io>,
+    ) -> Result<
+        <Self::PollIO as IODescription>::Output<'io, 'shard>,
+        <Self::PollIO as IODescription>::Error<'io, 'shard>,
+    >;
     /// the length of the collection
     fn len(&self) -> usize;
     /// the capacity of the collection

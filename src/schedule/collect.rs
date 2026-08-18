@@ -6,6 +6,7 @@ use core::{
 use crossbeam_utils::CachePadded;
 
 use crate::{
+    Collection,
     IODescription,
     schedule::{Hook, Hooked, Schedule},
     storage::StorageBackend,
@@ -16,7 +17,7 @@ use crate::{
 #[derive(Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy)]
 pub struct NoCollect<S>(S);
 
-impl<S: Schedule> Schedule for NoCollect<S> {
+impl<Q: Collection, S: Schedule<Q>> Schedule<Q> for NoCollect<S> {
     type Arm = S::Arm;
 
     fn choose_offer_shard(
@@ -43,12 +44,15 @@ impl<S: Schedule> Schedule for NoCollect<S> {
         self.0.create_arm()
     }
 
-    fn collect<Q: crate::Collection>(
+    fn collect<'b, 'c>(
         &self,
         _state: &impl StorageBackend<<Self::Arm as Hooked>::State>,
-        _sub_collections: &impl StorageBackend<Q>,
-        _input: <Q::PollIO as IODescription>::Input,
-    ) -> Option<(<Q::PollIO as IODescription>::Output, usize)> {
+        _sub_collections: &'c impl StorageBackend<Q>,
+        _input: <Q::PollIO as IODescription>::Input<'b>,
+    ) -> Option<(<Q::PollIO as IODescription>::Output<'b, 'c>, usize)>
+    where
+        Q: 'c,
+    {
         None
     }
 }
@@ -157,7 +161,7 @@ impl<T: Hook> Hook for DoubleCollectState<T> {
     }
 }
 
-impl<S: Schedule> Schedule for DoubleCollect<S> {
+impl<S: Schedule<Q>, Q: Collection> Schedule<Q> for DoubleCollect<S> {
     type Arm = DoubleCollectArm<S::Arm>;
 
     fn choose_offer_shard(
@@ -193,12 +197,15 @@ impl<S: Schedule> Schedule for DoubleCollect<S> {
         }
     }
 
-    fn collect<Q: crate::Collection>(
+    fn collect<'b, 'c>(
         &self,
         state: &impl StorageBackend<<Self::Arm as Hooked>::State>,
-        sub_collections: &impl StorageBackend<Q>,
-        input: <Q::PollIO as IODescription>::Input,
-    ) -> Option<(<Q::PollIO as IODescription>::Output, usize)> where {
+        sub_collections: &'c impl StorageBackend<Q>,
+        input: <Q::PollIO as IODescription>::Input<'b>,
+    ) -> Option<(<Q::PollIO as IODescription>::Output<'b, 'c>, usize)>
+    where
+        Q: 'c,
+    {
         let mut versions = state.map_to_buffer(|_| None);
 
         'collect: loop {

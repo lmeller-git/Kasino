@@ -1,4 +1,5 @@
 use crate::{
+    Collection,
     schedule::{Hooked, InstrumentedState, NoPad, Schedule},
     storage::StorageBackend,
 };
@@ -21,7 +22,7 @@ impl RRArm {
     }
 }
 
-impl Schedule for RoundRobin {
+impl<Q: Collection> Schedule<Q> for RoundRobin {
     type Arm = RRArm;
 
     fn choose_offer_shard(

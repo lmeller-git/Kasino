@@ -1,6 +1,7 @@
 use rand::{RngExt, SeedableRng, rngs::SmallRng};
 
 use crate::{
+    Collection,
     schedule::{Hooked, InstrumentedState, NoPad, Schedule},
     storage::StorageBackend,
 };
@@ -19,7 +20,7 @@ impl Default for RandomAccess<SmallRng> {
     }
 }
 
-impl Schedule for RandomAccess<SmallRng> {
+impl<Q: Collection> Schedule<Q> for RandomAccess<SmallRng> {
     type Arm = Self;
 
     fn choose_offer_shard(

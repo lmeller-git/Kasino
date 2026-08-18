@@ -51,24 +51,36 @@ pub(crate) trait MutAccessForkCollection {
 pub(crate) struct QueueOfferIO<T>(PhantomData<T>);
 
 impl<T> IODescription for QueueOfferIO<T> {
-    type Error = T;
-    type Input = T;
-    type Output = ();
+    type Error<'a, 'b>
+        = T
+    where
+        Self: 'b;
+    type Input<'a> = T;
+    type Output<'a, 'b>
+        = ()
+    where
+        Self: 'b;
 }
 
 pub(crate) struct QueuePollIO<T>(PhantomData<T>);
 
 impl<T> IODescription for QueuePollIO<T> {
-    type Error = ();
-    type Input = ();
-    type Output = T;
+    type Error<'a, 'b>
+        = ()
+    where
+        Self: 'b;
+    type Input<'a> = ();
+    type Output<'a, 'b>
+        = T
+    where
+        Self: 'b;
 }
 
 impl<'a, Q, S, B, C, T, const SUB_CAP: usize> MutAccessForkCollection
     for LopeCoreArm<'a, Q, S, B, C, SUB_CAP>
 where
     Q: Collection<PollIO = QueuePollIO<T>, OfferIO = QueueOfferIO<T>>,
-    S: Schedule,
+    S: Schedule<Q>,
     B: StorageBackend<Q>,
     C: StorageBackend<<S::Arm as Hooked>::State>,
 {
@@ -112,7 +124,13 @@ impl<T> Collection for LockedDeque<T> {
     type OfferIO = QueueOfferIO<T>;
     type PollIO = QueuePollIO<T>;
 
-    fn offer(&self, item: T) -> Result<(), T> {
+    fn offer<'a, 'b>(
+        &'b self,
+        item: <Self::OfferIO as IODescription>::Input<'a>,
+    ) -> Result<
+        <Self::OfferIO as IODescription>::Output<'a, 'b>,
+        <Self::OfferIO as IODescription>::Error<'a, 'b>,
+    > {
         let mut lock = self.raw.lock();
         if lock.len() >= self.cap {
             return Err(item);
@@ -121,7 +139,13 @@ impl<T> Collection for LockedDeque<T> {
         Ok(())
     }
 
-    fn poll(&self, input: ()) -> Result<T, ()> {
+    fn poll<'a, 'b>(
+        &'b self,
+        input: <Self::PollIO as IODescription>::Input<'a>,
+    ) -> Result<
+        <Self::PollIO as IODescription>::Output<'a, 'b>,
+        <Self::PollIO as IODescription>::Error<'a, 'b>,
+    > {
         self.raw.lock().pop_back().ok_or(())
     }
 

@@ -23,7 +23,7 @@ use crate::{
 };
 
 /// A schedule that determins which arm to pull next
-pub trait Schedule {
+pub trait Schedule<Q: Collection> {
     /// An owned hook to the schedule
     type Arm: Hooked;
 
@@ -46,12 +46,15 @@ pub trait Schedule {
     fn create_arm(&self) -> Self::Arm;
 
     /// Run a collect strategy on a queue to ensure we collect any remaingin item if one exists.
-    fn collect<Q: Collection>(
+    fn collect<'b, 'c>(
         &self,
         _state: &impl StorageBackend<<Self::Arm as Hooked>::State>,
-        sub_collections: &impl StorageBackend<Q>,
-        input: <Q::PollIO as IODescription>::Input,
-    ) -> Option<(<Q::PollIO as IODescription>::Output, usize)> {
+        sub_collections: &'c impl StorageBackend<Q>,
+        input: <Q::PollIO as IODescription>::Input<'b>,
+    ) -> Option<(<Q::PollIO as IODescription>::Output<'b, 'c>, usize)>
+    where
+        Q: 'c,
+    {
         for (i, q) in sub_collections.iter().enumerate() {
             if let Ok(item) = q.poll(input) {
                 return Some((item, i));

@@ -2,6 +2,7 @@ use crossbeam_utils::CachePadded;
 use rand::{RngExt, SeedableRng, rngs::SmallRng};
 
 use crate::{
+    Collection,
     schedule::{EDCount, Hooked, InstrumentedState, Schedule},
     storage::StorageBackend,
     sync::atomic::Ordering,
@@ -17,7 +18,7 @@ pub struct DRAArm<R> {
     rng: R,
 }
 
-impl<const CHOOSE: usize> Schedule for DRA<CHOOSE> {
+impl<Q: Collection, const CHOOSE: usize> Schedule<Q> for DRA<CHOOSE> {
     type Arm = DRAArm<SmallRng>;
 
     fn choose_offer_shard(
