@@ -66,30 +66,25 @@ impl<T, const N: usize> IndexMut<usize> for InlineStorage<T, N> {
 
 /// A handle to the core subcollection storage that is stored inline
 #[allow(type_alias_bounds)]
-pub type InlineArm<
-    'a,
-    Q,
-    S: Schedule<Q>,
-    const N: usize,
-    const SUB_CAP: usize = DEFAULT_QUEUE_CAP,
-> = LopeCoreArm<
-    'a,
-    Q,
-    S,
-    InlineStorage<Q, N>,
-    InlineStorage<<S::Arm as Hooked>::State, N>,
-    SUB_CAP,
->;
+pub type InlineArm<'a, Q, S: Schedule, const N: usize, const SUB_CAP: usize = DEFAULT_QUEUE_CAP> =
+    LopeCoreArm<
+        'a,
+        Q,
+        S,
+        InlineStorage<Q, N>,
+        InlineStorage<<S::Arm as Hooked>::State, N>,
+        SUB_CAP,
+    >;
 
 /// a subcollections storage that is stored inline
-pub struct InlineLope<Q, S: Schedule<Q>, const N: usize, const SUB_CAP: usize = DEFAULT_QUEUE_CAP> {
+pub struct InlineLope<Q, S: Schedule, const N: usize, const SUB_CAP: usize = DEFAULT_QUEUE_CAP> {
     raw: LopeCore<Q, S, InlineStorage<Q, N>, InlineStorage<<S::Arm as Hooked>::State, N>, SUB_CAP>,
 }
 
 impl<Q, S, const N: usize, const SUB_CAP: usize> InlineLope<Q, S, N, SUB_CAP>
 where
     Q: NewSized<SUB_CAP>,
-    S: Schedule<Q> + Default,
+    S: Schedule + Default,
 {
     /// constructs a new `InlineLope`
     pub fn new() -> Self {
@@ -110,7 +105,7 @@ where
 impl<Q, S, const N: usize, const SUB_CAP: usize> Default for InlineLope<Q, S, N, SUB_CAP>
 where
     Q: NewSized<SUB_CAP>,
-    S: Schedule<Q> + Default,
+    S: Schedule + Default,
 {
     fn default() -> Self {
         Self::new()

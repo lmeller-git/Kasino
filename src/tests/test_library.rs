@@ -1,9 +1,11 @@
 #![allow(unused)]
 
+use core::marker::PhantomData;
 use std::collections::{HashSet, VecDeque};
 
 use crate::{
     Collection,
+    IODescription,
     LopeCoreArm,
     NewSized,
     schedule::{Hooked, Schedule},
@@ -46,26 +48,42 @@ pub(crate) trait MutAccessForkCollection {
     }
 }
 
-impl<'a, Q, S, B, C, const SUB_CAP: usize> MutAccessForkCollection
+pub(crate) struct QueueOfferIO<T>(PhantomData<T>);
+
+impl<T> IODescription for QueueOfferIO<T> {
+    type Error = T;
+    type Input = T;
+    type Output = ();
+}
+
+pub(crate) struct QueuePollIO<T>(PhantomData<T>);
+
+impl<T> IODescription for QueuePollIO<T> {
+    type Error = ();
+    type Input = ();
+    type Output = T;
+}
+
+impl<'a, Q, S, B, C, T, const SUB_CAP: usize> MutAccessForkCollection
     for LopeCoreArm<'a, Q, S, B, C, SUB_CAP>
 where
-    Q: Collection,
-    S: Schedule<Q>,
+    Q: Collection<PollIO = QueuePollIO<T>, OfferIO = QueueOfferIO<T>>,
+    S: Schedule,
     B: StorageBackend<Q>,
     C: StorageBackend<<S::Arm as Hooked>::State>,
 {
-    type Item = Q::Item;
+    type Item = T;
 
     fn fork(&mut self) -> Self {
         self.fork()
     }
 
     fn enqueue(&mut self, item: Self::Item) -> Result<(), Self::Item> {
-        self.push(item)
+        self.offer(item)
     }
 
     fn dequeue(&mut self) -> Option<Self::Item> {
-        self.pop()
+        self.poll(()).ok()
     }
 
     fn len(&self) -> usize {
@@ -91,9 +109,10 @@ pub(crate) struct LockedDeque<T> {
 }
 
 impl<T> Collection for LockedDeque<T> {
-    type Item = T;
+    type OfferIO = QueueOfferIO<T>;
+    type PollIO = QueuePollIO<T>;
 
-    fn push(&self, item: Self::Item) -> Result<(), Self::Item> {
+    fn offer(&self, item: T) -> Result<(), T> {
         let mut lock = self.raw.lock();
         if lock.len() >= self.cap {
             return Err(item);
@@ -102,8 +121,8 @@ impl<T> Collection for LockedDeque<T> {
         Ok(())
     }
 
-    fn pop(&self) -> Option<Self::Item> {
-        self.raw.lock().pop_back()
+    fn poll(&self, input: ()) -> Result<T, ()> {
+        self.raw.lock().pop_back().ok_or(())
     }
 
     fn len(&self) -> usize {

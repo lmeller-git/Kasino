@@ -17,10 +17,10 @@ pub struct DCBOArm<R> {
     rng: R,
 }
 
-impl<T, const CHOOSE: usize> Schedule<T> for DCBO<CHOOSE> {
+impl<const CHOOSE: usize> Schedule for DCBO<CHOOSE> {
     type Arm = DCBOArm<SmallRng>;
 
-    fn choose_enq(
+    fn choose_offer_shard(
         &self,
         state: &impl StorageBackend<<Self::Arm as Hooked>::State>,
         arm: &mut Self::Arm,
@@ -31,7 +31,7 @@ impl<T, const CHOOSE: usize> Schedule<T> for DCBO<CHOOSE> {
             .unwrap()
     }
 
-    fn choose_deq(
+    fn choose_poll_shard(
         &self,
         state: &impl StorageBackend<<Self::Arm as Hooked>::State>,
         arm: &mut Self::Arm,

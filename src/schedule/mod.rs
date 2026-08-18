@@ -17,23 +17,24 @@ pub use round_robin::RoundRobin;
 
 use crate::{
     Collection,
+    IODescription,
     storage::StorageBackend,
     sync::atomic::{AtomicUsize, Ordering},
 };
 
 /// A schedule that determins which arm to pull next
-pub trait Schedule<T> {
+pub trait Schedule {
     /// An owned hook to the schedule
     type Arm: Hooked;
 
     /// choose the next arm that we call push on
-    fn choose_enq(
+    fn choose_offer_shard(
         &self,
         state: &impl StorageBackend<<Self::Arm as Hooked>::State>,
         arm: &mut Self::Arm,
     ) -> usize;
     /// choose the next arm that we call pop on
-    fn choose_deq(
+    fn choose_poll_shard(
         &self,
         choose_to: &impl StorageBackend<<Self::Arm as Hooked>::State>,
         arm: &mut Self::Arm,
@@ -49,9 +50,10 @@ pub trait Schedule<T> {
         &self,
         _state: &impl StorageBackend<<Self::Arm as Hooked>::State>,
         sub_collections: &impl StorageBackend<Q>,
-    ) -> Option<(Q::Item, usize)> {
+        input: <Q::PollIO as IODescription>::Input,
+    ) -> Option<(<Q::PollIO as IODescription>::Output, usize)> {
         for (i, q) in sub_collections.iter().enumerate() {
-            if let Some(item) = q.pop() {
+            if let Ok(item) = q.poll(input) {
                 return Some((item, i));
             }
         }
@@ -62,9 +64,13 @@ pub trait Schedule<T> {
 /// a hook for a scheduler state
 pub trait Hook {
     /// mutate the state on a succesfull enqueue
-    fn on_enq(&self) {}
+    fn on_offer_succ(&self) {}
+    /// mutate the state on a failed enqueue
+    fn on_offer_fail(&self) {}
     /// mutatet the state on a succesfull dequeue
-    fn on_deq(&self) {}
+    fn on_poll_succ(&self) {}
+    /// mutate the state on a faield dequeue
+    fn on_poll_fail(&self) {}
 }
 
 /// callbacks actuated by successful operations on Lope, which influence the schedulers next decision
@@ -72,12 +78,23 @@ pub trait Hooked {
     /// The type of state associated with this hook
     type State: Default + Hook;
     /// mutate the state on a succesfull enqueue
-    fn on_enq(&mut self, sub_state: &Self::State) {
-        sub_state.on_enq();
+    fn on_offer_succ(&mut self, sub_state: &Self::State) {
+        sub_state.on_offer_succ();
     }
+
+    /// mutate the state on a failed enqueue
+    fn on_offer_fail(&mut self, sub_state: &Self::State) {
+        sub_state.on_offer_fail();
+    }
+
     /// mutatet the state on a succesfull dequeue
-    fn on_deq(&mut self, sub_state: &Self::State) {
-        sub_state.on_deq();
+    fn on_poll_succ(&mut self, sub_state: &Self::State) {
+        sub_state.on_poll_succ();
+    }
+
+    /// mutate the state on a failed dequeue
+    fn on_poll_fail(&mut self, sub_state: &Self::State) {
+        sub_state.on_poll_fail();
     }
 }
 
@@ -92,8 +109,8 @@ pub type InstrumentedState<T> = T;
 #[cfg(debug_assertions)]
 #[derive(Debug, Default)]
 pub struct DbgState<T> {
-    enq_count: AtomicUsize,
-    deq_count: AtomicUsize,
+    offer_count: AtomicUsize,
+    poll_count: AtomicUsize,
     sched_state: T,
 }
 
@@ -101,12 +118,12 @@ pub struct DbgState<T> {
 impl<T> DbgState<T> {
     /// the enqueue count
     pub fn enq(&self) -> usize {
-        self.enq_count.load(Ordering::Relaxed)
+        self.offer_count.load(Ordering::Relaxed)
     }
 
     /// the dequeue count
     pub fn deq(&self) -> usize {
-        self.deq_count.load(Ordering::Relaxed)
+        self.poll_count.load(Ordering::Relaxed)
     }
 }
 
@@ -133,8 +150,8 @@ where
 {
     fn clone(&self) -> Self {
         Self {
-            enq_count: self.enq_count.load(Ordering::Relaxed).into(),
-            deq_count: self.deq_count.load(Ordering::Relaxed).into(),
+            offer_count: self.offer_count.load(Ordering::Relaxed).into(),
+            poll_count: self.poll_count.load(Ordering::Relaxed).into(),
             sched_state: self.sched_state.clone(),
         }
     }
@@ -145,14 +162,14 @@ impl<T> Hook for DbgState<T>
 where
     T: Hook,
 {
-    fn on_enq(&self) {
-        self.enq_count.fetch_add(1, Ordering::Relaxed);
-        self.sched_state.on_enq();
+    fn on_offer_succ(&self) {
+        self.offer_count.fetch_add(1, Ordering::Relaxed);
+        self.sched_state.on_offer_succ();
     }
 
-    fn on_deq(&self) {
-        self.deq_count.fetch_add(1, Ordering::Relaxed);
-        self.sched_state.on_deq();
+    fn on_poll_succ(&self) {
+        self.poll_count.fetch_add(1, Ordering::Relaxed);
+        self.sched_state.on_poll_succ();
     }
 }
 
@@ -173,11 +190,11 @@ impl Clone for EDCount {
 }
 
 impl Hook for EDCount {
-    fn on_enq(&self) {
+    fn on_offer_succ(&self) {
         self.enq.fetch_add(1, Ordering::Relaxed);
     }
 
-    fn on_deq(&self) {
+    fn on_poll_succ(&self) {
         self.deq.fetch_add(1, Ordering::Relaxed);
     }
 }
@@ -188,12 +205,12 @@ impl<T> Hook for CachePadded<T>
 where
     T: Hook,
 {
-    fn on_enq(&self) {
-        T::on_enq(self);
+    fn on_offer_succ(&self) {
+        T::on_offer_succ(self);
     }
 
-    fn on_deq(&self) {
-        T::on_deq(self);
+    fn on_poll_succ(&self) {
+        T::on_poll_succ(self);
     }
 }
 
@@ -220,11 +237,11 @@ impl<T> Hook for NoPad<T>
 where
     T: Hook,
 {
-    fn on_enq(&self) {
-        self.0.on_enq();
+    fn on_offer_succ(&self) {
+        self.0.on_offer_succ();
     }
 
-    fn on_deq(&self) {
-        self.0.on_deq();
+    fn on_poll_succ(&self) {
+        self.0.on_poll_succ();
     }
 }

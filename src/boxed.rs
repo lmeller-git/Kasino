@@ -65,18 +65,18 @@ impl<T> IndexMut<usize> for BoxedStorage<T> {
 
 /// a handle to the core subcollection container, which is stored dynamically
 #[allow(type_alias_bounds)]
-pub type BoxedArm<'a, Q, S: Schedule<Q>, const SUB_CAP: usize = DEFAULT_QUEUE_CAP> =
+pub type BoxedArm<'a, Q, S: Schedule, const SUB_CAP: usize = DEFAULT_QUEUE_CAP> =
     LopeCoreArm<'a, Q, S, BoxedStorage<Q>, BoxedStorage<<S::Arm as Hooked>::State>, SUB_CAP>;
 
 /// a subcollection container, which is stored dynamically
-pub struct BoxedLope<Q, S: Schedule<Q>, const SUB_CAP: usize = DEFAULT_QUEUE_CAP> {
+pub struct BoxedLope<Q, S: Schedule, const SUB_CAP: usize = DEFAULT_QUEUE_CAP> {
     raw: LopeCore<Q, S, BoxedStorage<Q>, BoxedStorage<<S::Arm as Hooked>::State>, SUB_CAP>,
 }
 
 impl<Q, S, const SUB_CAP: usize> BoxedLope<Q, S, SUB_CAP>
 where
     Q: NewSized<SUB_CAP>,
-    S: Schedule<Q> + Default,
+    S: Schedule + Default,
 {
     /// constructs a new `BoxedLop`
     pub fn new(n_cores: usize) -> Self {

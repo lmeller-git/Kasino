@@ -2,6 +2,7 @@ use core::marker::PhantomData;
 
 use crate::{
     Collection,
+    IODescription,
     schedule::{Hooked, Schedule},
     storage::StorageBackend,
 };
@@ -42,7 +43,7 @@ where
 
 impl<Q, S, B, C, const SUB_CAP: usize> LopeCore<Q, S, B, C, SUB_CAP>
 where
-    S: Schedule<Q>,
+    S: Schedule,
 {
     pub(crate) fn new_root(&self) -> LopeCoreArm<'_, Q, S, B, C, SUB_CAP> {
         LopeCoreArm {
@@ -54,7 +55,7 @@ where
 
 /// An owned handle into the core collection. May be used for mutabel access of some fields
 #[derive(PartialEq, Eq, PartialOrd, Ord, Debug, Hash)]
-pub struct LopeCoreArm<'a, Q, S: Schedule<Q>, B, C, const SUB_CAP: usize = DEFAULT_QUEUE_CAP> {
+pub struct LopeCoreArm<'a, Q, S: Schedule, B, C, const SUB_CAP: usize = DEFAULT_QUEUE_CAP> {
     parent: &'a LopeCore<Q, S, B, C, SUB_CAP>,
     arm: S::Arm,
 }
@@ -62,7 +63,7 @@ pub struct LopeCoreArm<'a, Q, S: Schedule<Q>, B, C, const SUB_CAP: usize = DEFAU
 impl<'a, Q, S, B, C, const SUB_CAP: usize> LopeCoreArm<'a, Q, S, B, C, SUB_CAP>
 where
     Q: Collection,
-    S: Schedule<Q>,
+    S: Schedule,
     B: StorageBackend<Q>,
     C: StorageBackend<<S::Arm as Hooked>::State>,
 {
@@ -75,62 +76,92 @@ where
     }
 
     /// push an item into one of the underlying subcollections
-    pub fn push(&mut self, item: Q::Item) -> Result<(), Q::Item> {
+    pub fn offer(
+        &mut self,
+        item: <Q::OfferIO as IODescription>::Input,
+    ) -> Result<<Q::OfferIO as IODescription>::Output, <Q::OfferIO as IODescription>::Error> {
         let i = self
             .parent
             .scheduler
-            .choose_enq(&self.parent.collection_state, &mut self.arm);
-        self.parent.sub_collections[i].push(item)?;
-        self.arm.on_enq(&self.parent.collection_state[i]);
-        Ok(())
+            .choose_offer_shard(&self.parent.collection_state, &mut self.arm);
+        match self.parent.sub_collections[i].offer(item) {
+            Ok(r) => {
+                self.arm.on_offer_succ(&self.parent.collection_state[i]);
+                Ok(r)
+            }
+            Err(e) => {
+                self.arm.on_offer_fail(&self.parent.collection_state[i]);
+                Err(e)
+            }
+        }
     }
 
     /// pop and item from one of the underlying subcollections
-    pub fn pop(&mut self) -> Option<Q::Item> {
+    pub fn poll(
+        &mut self,
+        input: <Q::PollIO as IODescription>::Input,
+    ) -> Result<<Q::PollIO as IODescription>::Output, <Q::PollIO as IODescription>::Error> {
         let i = self
             .parent
             .scheduler
-            .choose_deq(&self.parent.collection_state, &mut self.arm);
-        if let Some(item) = self.parent.sub_collections[i].pop() {
-            self.arm.on_deq(&self.parent.collection_state[i]);
-            return Some(item);
+            .choose_poll_shard(&self.parent.collection_state, &mut self.arm);
+        match self.parent.sub_collections[i].poll(input) {
+            Ok(r) => {
+                self.arm.on_poll_succ(&self.parent.collection_state[i]);
+                Ok(r)
+            }
+            Err(e) => {
+                self.arm.on_poll_fail(&self.parent.collection_state[i]);
+                let r = self.parent.scheduler.collect(
+                    &self.parent.collection_state,
+                    &self.parent.sub_collections,
+                    input,
+                );
+                if let Some((r, state)) = r {
+                    self.arm.on_poll_succ(&self.parent.collection_state[state]);
+                    Ok(r)
+                } else {
+                    Err(e)
+                }
+            }
         }
-
-        let r = self
-            .parent
-            .scheduler
-            .collect(&self.parent.collection_state, &self.parent.sub_collections);
-        if let Some((r, state)) = r {
-            self.arm.on_deq(&self.parent.collection_state[state]);
-            return Some(r);
-        }
-
-        None
     }
 
     /// pops an item and returns the associated state
-    pub fn pop_with_info(&mut self) -> (Option<Q::Item>, <S::Arm as Hooked>::State)
+    #[allow(clippy::type_complexity)]
+    pub fn poll_with_info(
+        &mut self,
+        input: <Q::PollIO as IODescription>::Input,
+    ) -> (
+        Result<<Q::PollIO as IODescription>::Output, <Q::PollIO as IODescription>::Error>,
+        <S::Arm as Hooked>::State,
+    )
     where
         <S::Arm as Hooked>::State: Clone,
     {
         let i = self
             .parent
             .scheduler
-            .choose_deq(&self.parent.collection_state, &mut self.arm);
-        if let Some(item) = self.parent.sub_collections[i].pop() {
-            self.arm.on_deq(&self.parent.collection_state[i]);
-            return (Some(item), self.parent.collection_state[i].clone());
-        }
-
-        let r = self
-            .parent
-            .scheduler
-            .collect(&self.parent.collection_state, &self.parent.sub_collections);
-        if let Some((r, state)) = r {
-            self.arm.on_deq(&self.parent.collection_state[state]);
-            (Some(r), self.parent.collection_state[state].clone())
-        } else {
-            (None, self.parent.collection_state[i].clone())
+            .choose_poll_shard(&self.parent.collection_state, &mut self.arm);
+        match self.parent.sub_collections[i].poll(input) {
+            Ok(r) => {
+                self.arm.on_poll_succ(&self.parent.collection_state[i]);
+                (Ok(r), self.parent.collection_state[i].clone())
+            }
+            Err(e) => {
+                self.arm.on_poll_fail(&self.parent.collection_state[i]);
+                let r = self.parent.scheduler.collect(
+                    &self.parent.collection_state,
+                    &self.parent.sub_collections,
+                    input,
+                );
+                if let Some((r, state)) = r {
+                    self.arm.on_poll_succ(&self.parent.collection_state[state]);
+                    (Ok(r), self.parent.collection_state[state].clone())
+                } else {
+                    (Err(e), self.parent.collection_state[i].clone())
+                }
+            }
         }
     }
 
@@ -158,7 +189,7 @@ where
 impl<'a, Q, S, B, C, const SUB_CAP: usize> LopeCoreArm<'a, Q, S, B, C, SUB_CAP>
 where
     B: StorageBackend<Q>,
-    S: Schedule<Q>,
+    S: Schedule,
 {
     /// returns the number of subqueues
     pub fn nbr_subqueues(&self) -> usize {
@@ -170,29 +201,41 @@ where
 impl<'a, Q, S, B, C, const SUB_CAP: usize> LopeCoreArm<'a, Q, S, B, C, SUB_CAP>
 where
     Q: Collection,
-    S: Schedule<Q>,
+    S: Schedule,
     B: StorageBackend<Q>,
     C: StorageBackend<<S::Arm as Hooked>::State>,
 {
+    /// polls and returns the index of the shard from which we polled
     #[allow(unused)]
-    pub(crate) fn pop_with_idx(&mut self) -> Option<(Q::Item, usize)> {
+    #[allow(clippy::type_complexity)]
+    pub fn poll_with_idx(
+        &mut self,
+        input: <Q::PollIO as IODescription>::Input,
+    ) -> Result<(<Q::PollIO as IODescription>::Output, usize), <Q::PollIO as IODescription>::Error>
+    {
         let i = self
             .parent
             .scheduler
-            .choose_enq(&self.parent.collection_state, &mut self.arm);
-        if let Some(item) = self.parent.sub_collections[i].pop() {
-            self.arm.on_deq(&self.parent.collection_state[i]);
-            return Some((item, i));
+            .choose_poll_shard(&self.parent.collection_state, &mut self.arm);
+        match self.parent.sub_collections[i].poll(input) {
+            Ok(r) => {
+                self.arm.on_poll_succ(&self.parent.collection_state[i]);
+                Ok((r, i))
+            }
+            Err(e) => {
+                self.arm.on_poll_fail(&self.parent.collection_state[i]);
+                let r = self.parent.scheduler.collect(
+                    &self.parent.collection_state,
+                    &self.parent.sub_collections,
+                    input,
+                );
+                if let Some((r, state)) = r {
+                    self.arm.on_poll_succ(&self.parent.collection_state[state]);
+                    Ok((r, state))
+                } else {
+                    Err(e)
+                }
+            }
         }
-
-        let r = self
-            .parent
-            .scheduler
-            .collect(&self.parent.collection_state, &self.parent.sub_collections);
-        if let Some((r, state)) = r {
-            self.arm.on_deq(&self.parent.collection_state[state]);
-            return Some((r, state));
-        }
-        None
     }
 }

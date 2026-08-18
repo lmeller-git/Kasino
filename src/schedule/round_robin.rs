@@ -21,10 +21,10 @@ impl RRArm {
     }
 }
 
-impl<T> Schedule<T> for RoundRobin {
+impl Schedule for RoundRobin {
     type Arm = RRArm;
 
-    fn choose_enq(
+    fn choose_offer_shard(
         &self,
         state: &impl StorageBackend<<Self::Arm as Hooked>::State>,
         arm: &mut Self::Arm,
@@ -32,7 +32,7 @@ impl<T> Schedule<T> for RoundRobin {
         arm.fetch_add() % state.len()
     }
 
-    fn choose_deq(
+    fn choose_poll_shard(
         &self,
         state: &impl StorageBackend<<Self::Arm as Hooked>::State>,
         arm: &mut Self::Arm,

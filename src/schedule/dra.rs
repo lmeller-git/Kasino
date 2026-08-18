@@ -17,10 +17,10 @@ pub struct DRAArm<R> {
     rng: R,
 }
 
-impl<T, const CHOOSE: usize> Schedule<T> for DRA<CHOOSE> {
+impl<const CHOOSE: usize> Schedule for DRA<CHOOSE> {
     type Arm = DRAArm<SmallRng>;
 
-    fn choose_enq(
+    fn choose_offer_shard(
         &self,
         state: &impl StorageBackend<<Self::Arm as Hooked>::State>,
         arm: &mut Self::Arm,
@@ -36,7 +36,7 @@ impl<T, const CHOOSE: usize> Schedule<T> for DRA<CHOOSE> {
             .unwrap()
     }
 
-    fn choose_deq(
+    fn choose_poll_shard(
         &self,
         state: &impl StorageBackend<<Self::Arm as Hooked>::State>,
         arm: &mut Self::Arm,

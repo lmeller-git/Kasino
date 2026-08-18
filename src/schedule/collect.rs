@@ -6,6 +6,7 @@ use core::{
 use crossbeam_utils::CachePadded;
 
 use crate::{
+    IODescription,
     schedule::{Hook, Hooked, Schedule},
     storage::StorageBackend,
     sync::atomic::{AtomicUsize, Ordering},
@@ -15,23 +16,23 @@ use crate::{
 #[derive(Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy)]
 pub struct NoCollect<S>(S);
 
-impl<S: Schedule<T>, T> Schedule<T> for NoCollect<S> {
+impl<S: Schedule> Schedule for NoCollect<S> {
     type Arm = S::Arm;
 
-    fn choose_enq(
+    fn choose_offer_shard(
         &self,
         state: &impl StorageBackend<<Self::Arm as Hooked>::State>,
         arm: &mut Self::Arm,
     ) -> usize {
-        self.0.choose_enq(state, arm)
+        self.0.choose_offer_shard(state, arm)
     }
 
-    fn choose_deq(
+    fn choose_poll_shard(
         &self,
         choose_to: &impl StorageBackend<<Self::Arm as Hooked>::State>,
         arm: &mut Self::Arm,
     ) -> usize {
-        self.0.choose_deq(choose_to, arm)
+        self.0.choose_poll_shard(choose_to, arm)
     }
 
     fn fork_arm(&self, arm: &mut Self::Arm) -> Self::Arm {
@@ -46,7 +47,8 @@ impl<S: Schedule<T>, T> Schedule<T> for NoCollect<S> {
         &self,
         _state: &impl StorageBackend<<Self::Arm as Hooked>::State>,
         _sub_collections: &impl StorageBackend<Q>,
-    ) -> Option<(Q::Item, usize)> {
+        _input: <Q::PollIO as IODescription>::Input,
+    ) -> Option<(<Q::PollIO as IODescription>::Output, usize)> {
         None
     }
 }
@@ -146,34 +148,37 @@ impl<A: Hooked> Hooked for DoubleCollectArm<A> {
 }
 
 impl<T: Hook> Hook for DoubleCollectState<T> {
-    fn on_enq(&self) {
-        self.s.on_enq();
+    fn on_offer_succ(&self) {
+        self.s.on_offer_succ();
     }
 
-    fn on_deq(&self) {
-        self.s.on_deq();
+    fn on_poll_succ(&self) {
+        self.s.on_poll_succ();
     }
 }
 
-impl<S: Schedule<T>, T> Schedule<T> for DoubleCollect<S> {
+impl<S: Schedule> Schedule for DoubleCollect<S> {
     type Arm = DoubleCollectArm<S::Arm>;
 
-    fn choose_enq(
+    fn choose_offer_shard(
         &self,
         state: &impl StorageBackend<<Self::Arm as Hooked>::State>,
         arm: &mut Self::Arm,
     ) -> usize {
-        let idx = self.0.choose_enq(&StorageView::new(state), &mut arm.a);
+        let idx = self
+            .0
+            .choose_offer_shard(&StorageView::new(state), &mut arm.a);
         state[idx].e.fetch_add(1, Ordering::Release);
         idx
     }
 
-    fn choose_deq(
+    fn choose_poll_shard(
         &self,
         choose_to: &impl StorageBackend<<Self::Arm as Hooked>::State>,
         arm: &mut Self::Arm,
     ) -> usize {
-        self.0.choose_deq(&StorageView::new(choose_to), &mut arm.a)
+        self.0
+            .choose_poll_shard(&StorageView::new(choose_to), &mut arm.a)
     }
 
     fn fork_arm(&self, arm: &mut Self::Arm) -> Self::Arm {
@@ -192,13 +197,14 @@ impl<S: Schedule<T>, T> Schedule<T> for DoubleCollect<S> {
         &self,
         state: &impl StorageBackend<<Self::Arm as Hooked>::State>,
         sub_collections: &impl StorageBackend<Q>,
-    ) -> Option<(Q::Item, usize)> where {
+        input: <Q::PollIO as IODescription>::Input,
+    ) -> Option<(<Q::PollIO as IODescription>::Output, usize)> where {
         let mut versions = state.map_to_buffer(|_| None);
 
         'collect: loop {
             for (i, item) in state.iter().enumerate() {
                 let epoch = item.e.load(Ordering::Acquire);
-                if let Some(item) = sub_collections[i].pop() {
+                if let Ok(item) = sub_collections[i].poll(input) {
                     return Some((item, i));
                 }
                 versions[i].replace(epoch);

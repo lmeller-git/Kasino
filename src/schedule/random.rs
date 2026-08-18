@@ -19,10 +19,10 @@ impl Default for RandomAccess<SmallRng> {
     }
 }
 
-impl<T> Schedule<T> for RandomAccess<SmallRng> {
+impl Schedule for RandomAccess<SmallRng> {
     type Arm = Self;
 
-    fn choose_enq(
+    fn choose_offer_shard(
         &self,
         state: &impl StorageBackend<<Self::Arm as Hooked>::State>,
         arm: &mut Self::Arm,
@@ -30,7 +30,7 @@ impl<T> Schedule<T> for RandomAccess<SmallRng> {
         arm.rng.random_range(..state.len())
     }
 
-    fn choose_deq(
+    fn choose_poll_shard(
         &self,
         state: &impl StorageBackend<<Self::Arm as Hooked>::State>,
         arm: &mut Self::Arm,

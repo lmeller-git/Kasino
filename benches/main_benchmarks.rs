@@ -1,5 +1,6 @@
 use std::{
     hint::black_box,
+    marker::PhantomData,
     sync::atomic::{AtomicUsize, Ordering},
     thread,
     time::{Duration, Instant},
@@ -9,6 +10,7 @@ use criterion::{BenchmarkId, Criterion, Throughput, criterion_group, criterion_m
 use crossbeam_queue::ArrayQueue as RawArrayQueue;
 use lope::{
     Collection,
+    IODescription,
     InlineLope,
     NewSized,
     schedule::{DCBO, DRA, RandomAccess, RoundRobin},
@@ -26,17 +28,34 @@ impl Backoff {
     }
 }
 
+pub(crate) struct QueueOfferIO<T>(PhantomData<T>);
+
+impl<T> IODescription for QueueOfferIO<T> {
+    type Error = T;
+    type Input = T;
+    type Output = ();
+}
+
+pub(crate) struct QueuePollIO<T>(PhantomData<T>);
+
+impl<T> IODescription for QueuePollIO<T> {
+    type Error = ();
+    type Input = ();
+    type Output = T;
+}
+
 struct QAdapter<T, const N: usize>(RawArrayQueue<T>);
 
 impl<T, const N: usize> Collection for QAdapter<T, N> {
-    type Item = T;
+    type OfferIO = QueueOfferIO<T>;
+    type PollIO = QueuePollIO<T>;
 
-    fn push(&self, item: T) -> Result<(), T> {
+    fn offer(&self, item: T) -> Result<(), T> {
         self.0.push(item)
     }
 
-    fn pop(&self) -> Option<T> {
-        self.0.pop()
+    fn poll(&self, _input: ()) -> Result<T, ()> {
+        self.0.pop().ok_or(())
     }
 
     fn len(&self) -> usize {
@@ -97,8 +116,8 @@ macro_rules! bench_lope_single_threaded {
                     InlineLope::new();
                 let mut arm = lope.new_root();
                 b.iter(|| {
-                    _ = arm.push(black_box(42u64));
-                    black_box(arm.pop())
+                    _ = arm.offer(black_box(42u64));
+                    black_box(arm.poll(()))
                 });
             });
         )+
@@ -106,7 +125,7 @@ macro_rules! bench_lope_single_threaded {
 }
 
 fn bench_single_threaded(c: &mut Criterion) {
-    let mut group = c.benchmark_group("single_threaded_push_pop");
+    let mut group = c.benchmark_group("single_threaded_offer_poll");
 
     group.throughput(Throughput::Elements(1));
     group.bench_function("raw_array_queue", |b| {
@@ -157,7 +176,7 @@ macro_rules! bench_lope_mpsc {
                                 scope.spawn(move || {
                                     for i in 0..MT_COUNT {
                                         let mut b = Backoff::new();
-                                        while arm.push(i as u64).is_err() {
+                                        while arm.offer(i as u64).is_err() {
                                             b.spin();
                                         }
                                     }
@@ -166,7 +185,7 @@ macro_rules! bench_lope_mpsc {
                             let mut consumer = lope.new_root();
                             for _ in 0..($n * MT_COUNT) {
                                 let mut b = Backoff::new();
-                                while consumer.pop().is_none() {
+                                while consumer.poll(()).is_err() {
                                     b.spin();
                                 }
                             }
@@ -190,7 +209,7 @@ macro_rules! bench_lope_mpmc {
                     for _ in 0..iters {
                         let lope: InlineLope<QAdapter<u64, MT_SUB_CAP>, $Sched, SUB_QUEUE_COUNT, MT_SUB_CAP> =
                             InlineLope::new();
-                        let popped_total = AtomicUsize::new(0);
+                        let pollped_total = AtomicUsize::new(0);
                         let start = Instant::now();
                         std::thread::scope(|scope| {
                             for _ in 0..$n {
@@ -198,7 +217,7 @@ macro_rules! bench_lope_mpmc {
                                 scope.spawn(move || {
                                     for i in 0..MT_COUNT {
                                         let mut b = Backoff::new();
-                                        while arm.push(i as u64).is_err() {
+                                        while arm.offer(i as u64).is_err() {
                                             b.spin();
                                         }
                                     }
@@ -206,23 +225,23 @@ macro_rules! bench_lope_mpmc {
                             }
                             for _ in 0..$n {
                                 let mut arm = lope.new_root();
-                                let popped_total = &popped_total;
+                                let pollped_total = &pollped_total;
                                 scope.spawn(move || {
-                                    let mut popped = 0usize;
-                                    while popped < MT_COUNT {
+                                    let mut pollped = 0usize;
+                                    while pollped < MT_COUNT {
                                         let mut b = Backoff::new();
-                                        if arm.pop().is_some() {
-                                            popped += 1;
+                                        if arm.poll(()).is_ok() {
+                                            pollped += 1;
                                         } else {
                                             b.spin();
                                         }
                                     }
-                                    popped_total.fetch_add(popped, Ordering::Relaxed);
+                                    pollped_total.fetch_add(pollped, Ordering::Relaxed);
                                 });
                             }
                         });
                         total += start.elapsed();
-                        debug_assert_eq!(popped_total.load(Ordering::Relaxed), $n * MT_COUNT);
+                        debug_assert_eq!(pollped_total.load(Ordering::Relaxed), $n * MT_COUNT);
                     }
                     total
                 });

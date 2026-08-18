@@ -10,18 +10,33 @@
 //! ## Usage
 //!
 //! ```rust
-//! # use lope::{Collection, NewSized};
+//! # use lope::{Collection, NewSized, IODescription};
 //! # use std::sync::Mutex;
 //! # use std::collections::VecDeque;
+//! # use std::marker::PhantomData;
+//! #
+//! # struct QueuePushIO<T>(PhantomData<T>);
+//! # impl<T> IODescription for QueuePushIO<T> {
+//! #     type Input = T;
+//! #     type Output = ();
+//! #     type Error = T;
+//! # }
+//! # struct QueuePollIO<T>(PhantomData<T>);
+//! # impl<T> IODescription for QueuePollIO<T> {
+//! #     type Input = ();
+//! #     type Output = T;
+//! #     type Error = ();
+//! # }
 //! #
 //! # struct MyQueue<T> { deque: Mutex<VecDeque<T>>, cap: usize }
 //! # impl<T> Collection for MyQueue<T> {
-//! #     type Item = T;
-//! #     fn push(&self, item: T) -> Result<(), T> {
+//! #     type PollIO = QueuePollIO<T>;
+//! #     type OfferIO = QueuePushIO<T>;
+//! #     fn offer(&self, item: T) -> Result<(), T> {
 //! #         let mut g = self.deque.lock().unwrap();
 //! #         if g.len() >= self.cap { Err(item) } else { g.push_back(item); Ok(()) }
 //! #     }
-//! #     fn pop(&self) -> Option<T> { self.deque.lock().unwrap().pop_front() }
+//! #     fn poll(&self, input: ()) -> Result<T, ()> { self.deque.lock().unwrap().pop_front().ok_or(()) }
 //! #     fn len(&self) -> usize { self.deque.lock().unwrap().len() }
 //! #     fn cap(&self) -> usize { self.cap }
 //! # }
@@ -37,9 +52,9 @@
 //! let mut my_handle2 = my_handle.fork();
 //!
 //! // It implements all operations of a Collection
-//! assert!(my_handle.push(42).is_ok());
-//! assert!(my_handle2.push(10).is_ok());
-//! _ = my_handle.pop();
+//! assert!(my_handle.offer(42).is_ok());
+//! assert!(my_handle2.offer(10).is_ok());
+//! assert!(my_handle.poll(()).is_ok());
 //! ```
 //!
 //! ## Property preservation
@@ -123,17 +138,35 @@ pub use boxed::*;
 pub use construction::LopeCoreArm;
 pub use inline::*;
 
+/// Description about the surface of a failable method
+pub trait IODescription {
+    /// The input
+    type Input;
+    /// The successful output
+    type Output;
+    /// the error
+    type Error;
+}
+
 /// A collection that supports `push` and `pop` operations.
 ///
 /// the specification ordering of this collection may influence the rank error and delay of the sharded version.
 pub trait Collection {
     /// The item stored in this collection.
-    type Item;
+    type OfferIO: IODescription;
+    /// the contract of poll
+    type PollIO: IODescription<Input: Copy>;
 
     /// pushes an item into the collection
-    fn push(&self, item: Self::Item) -> Result<(), Self::Item>;
+    fn offer(
+        &self,
+        item: <Self::OfferIO as IODescription>::Input,
+    ) -> Result<<Self::OfferIO as IODescription>::Output, <Self::OfferIO as IODescription>::Error>;
     /// pops an item from the collection
-    fn pop(&self) -> Option<Self::Item>;
+    fn poll(
+        &self,
+        input: <Self::PollIO as IODescription>::Input,
+    ) -> Result<<Self::PollIO as IODescription>::Output, <Self::PollIO as IODescription>::Error>;
     /// the length of the collection
     fn len(&self) -> usize;
     /// the capacity of the collection
