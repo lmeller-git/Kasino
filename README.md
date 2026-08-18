@@ -46,7 +46,7 @@ _ = my_handle.pop();
 #### Ordering and Consistency Guarantees:
 
 - **Relaxed FIFO**: if the wrapped collection has FIFO ordering, [`Lope`] has **k-FIFO** ordering.
-- **Linearizability**: if the wrapped collection is linearizable, all operations on [`Resizable`] are also linearizable with respect to its relaxed FIFO specification.
+- **Linearizability**: if the wrapped collection is linearizable, all operations on [`Lope`] are also linearizable with respect to its relaxed FIFO specification.
 
 #### Relaxation
 

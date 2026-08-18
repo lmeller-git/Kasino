@@ -51,6 +51,7 @@ impl<S: Schedule<T>, T> Schedule<T> for NoCollect<S> {
     }
 }
 
+#[allow(unreachable_pub)]
 pub trait View<'a, T> {
     fn project(&'a self) -> &'a T;
 }
@@ -65,6 +66,7 @@ where
     }
 }
 
+#[allow(unreachable_pub)]
 pub struct StorageView<'a, B, T, K> {
     b: &'a B,
     _phantom: PhantomData<(&'a T, &'a K)>,
@@ -117,12 +119,15 @@ where
     }
 }
 
+/// Runs a double collect on a dequeu. This strategy promises empty-linearizability
 pub struct DoubleCollect<S>(S);
 
+#[allow(unnameable_types)]
 pub struct DoubleCollectArm<A> {
     a: A,
 }
 
+#[allow(unnameable_types)]
 #[derive(Default, Debug)]
 pub struct DoubleCollectState<S> {
     s: S,
