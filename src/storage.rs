@@ -3,13 +3,18 @@
 use core::ops::{Index, IndexMut};
 
 /// a generic storage
-pub trait StorageBackend<T>: Index<usize, Output = T> + IndexMut<usize> {
+pub trait StorageBackend<T>: Index<usize, Output = T> {
+    /// A generic storagebackend, which this storagebackend knows how to construct
+    type Rebind<U>: StorageBackend<U> + IndexMut<usize>;
+
     /// the current length of the storage
     fn len(&self) -> usize;
     /// returns an iterator over all items in the storage
     fn iter<'a>(&'a self) -> impl Iterator<Item = &'a T>
     where
         T: 'a;
+    /// Builds a Self::Rebind filled with f(idx)
+    fn map_to_buffer<U>(&self, f: impl Fn(usize) -> U) -> Self::Rebind<U>;
     /// is the storgae empty?
     fn is_empty(&self) -> bool {
         self.len() == 0

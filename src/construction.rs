@@ -96,14 +96,13 @@ where
             return Some(item);
         }
 
-        // TODO: may want to do a double-collect pass here to grant empty-linearizability.
-        // But this is dependant on schedule and may not always be possible (for example on random schedule).
-        // Is also not strictly necessary and reduces performance
-        for (i, q) in self.parent.sub_collections.iter().enumerate() {
-            if let Some(item) = q.pop() {
-                self.arm.on_deq(&self.parent.collection_state[i]);
-                return Some(item);
-            }
+        let r = self
+            .parent
+            .scheduler
+            .collect(&self.parent.collection_state, &self.parent.sub_collections);
+        if let Some((r, state)) = r {
+            self.arm.on_deq(&self.parent.collection_state[state]);
+            return Some(r);
         }
 
         None
@@ -123,17 +122,16 @@ where
             return (Some(item), self.parent.collection_state[i].clone());
         }
 
-        // TODO: may want to do a double-collect pass here to grant empty-linearizability.
-        // But this is dependant on schedule and may not always be possible (for example on random schedule).
-        // Is also not strictly necessary and reduces performance
-        for (i, q) in self.parent.sub_collections.iter().enumerate() {
-            if let Some(item) = q.pop() {
-                self.arm.on_deq(&self.parent.collection_state[i]);
-                return (Some(item), self.parent.collection_state[i].clone());
-            }
+        let r = self
+            .parent
+            .scheduler
+            .collect(&self.parent.collection_state, &self.parent.sub_collections);
+        if let Some((r, state)) = r {
+            self.arm.on_deq(&self.parent.collection_state[state]);
+            (Some(r), self.parent.collection_state[state].clone())
+        } else {
+            (None, self.parent.collection_state[i].clone())
         }
-
-        (None, self.parent.collection_state[i].clone())
     }
 
     /// state of the scheduler/queues
@@ -186,16 +184,15 @@ where
             self.arm.on_deq(&self.parent.collection_state[i]);
             return Some((item, i));
         }
-        // TODO: may want to do a double-collect pass here to grant empty-linearizability.
-        // But this is dependant on schedule and may not always be possible (for example on random schedule).
-        // Is also not strictly necessary and reduces performance
-        for (i, q) in self.parent.sub_collections.iter().enumerate() {
-            if let Some(item) = q.pop() {
-                self.arm.on_deq(&self.parent.collection_state[i]);
-                return Some((item, i));
-            }
-        }
 
+        let r = self
+            .parent
+            .scheduler
+            .collect(&self.parent.collection_state, &self.parent.sub_collections);
+        if let Some((r, state)) = r {
+            self.arm.on_deq(&self.parent.collection_state[state]);
+            return Some((r, state));
+        }
         None
     }
 }

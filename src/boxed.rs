@@ -31,6 +31,8 @@ impl<T> BoxedStorage<T> {
 }
 
 impl<T> StorageBackend<T> for BoxedStorage<T> {
+    type Rebind<U> = BoxedStorage<U>;
+
     fn len(&self) -> usize {
         self.arr.len()
     }
@@ -40,6 +42,10 @@ impl<T> StorageBackend<T> for BoxedStorage<T> {
         T: 'a,
     {
         self.arr.iter()
+    }
+
+    fn map_to_buffer<K>(&self, f: impl Fn(usize) -> K) -> Self::Rebind<K> {
+        BoxedStorage::from_fn_and_size(f, self.arr.len())
     }
 }
 

@@ -22,6 +22,8 @@ impl<T: Default, const N: usize> Default for InlineStorage<T, N> {
 }
 
 impl<T, const N: usize> StorageBackend<T> for InlineStorage<T, N> {
+    type Rebind<U> = InlineStorage<U, N>;
+
     fn len(&self) -> usize {
         self.arr.len()
     }
@@ -31,6 +33,12 @@ impl<T, const N: usize> StorageBackend<T> for InlineStorage<T, N> {
         T: 'a,
     {
         self.arr.iter()
+    }
+
+    fn map_to_buffer<U>(&self, f: impl Fn(usize) -> U) -> Self::Rebind<U> {
+        InlineStorage {
+            arr: core::array::from_fn(f),
+        }
     }
 }
 

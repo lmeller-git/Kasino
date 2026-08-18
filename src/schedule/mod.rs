@@ -1,5 +1,6 @@
 //! schedulers used in this crate
 
+mod collect;
 mod dcbo;
 mod dra;
 mod random;
@@ -14,6 +15,7 @@ pub use random::RandomAccess;
 pub use round_robin::RoundRobin;
 
 use crate::{
+    Collection,
     storage::StorageBackend,
     sync::atomic::{AtomicUsize, Ordering},
 };
@@ -40,6 +42,20 @@ pub trait Schedule<T> {
     fn fork_arm(&self, arm: &mut Self::Arm) -> Self::Arm;
     /// creates a new owned hook with default specs
     fn create_arm(&self) -> Self::Arm;
+
+    /// Run a collect strategy on a queue to ensure we collect any remaingin item if one exists.
+    fn collect<Q: Collection>(
+        &self,
+        _state: &impl StorageBackend<<Self::Arm as Hooked>::State>,
+        sub_collections: &impl StorageBackend<Q>,
+    ) -> Option<(Q::Item, usize)> {
+        for (i, q) in sub_collections.iter().enumerate() {
+            if let Some(item) = q.pop() {
+                return Some((item, i));
+            }
+        }
+        None
+    }
 }
 
 /// a hook for a scheduler state
