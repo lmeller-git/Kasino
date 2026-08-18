@@ -1,11 +1,12 @@
 use crate::{
     InlineLope,
-    schedule::DCBO,
+    schedule::{DCBO, DoubleCollect},
     tests::test_library::{
         LockedDeque,
         force_push,
         len,
         len_empty_full,
+        linearizable,
         mpmc,
         mpmc_ring_buffer,
         mpsc,
@@ -67,4 +68,10 @@ fn mpsc_impl() {
 fn spsc_impl() {
     let q: InlineLope<LockedDeque<u32>, DCBO, 2> = InlineLope::new();
     spsc(q.new_root());
+}
+
+#[test]
+fn linearizable_impl() {
+    let q: InlineLope<LockedDeque<u32>, DoubleCollect<DCBO>, 2> = InlineLope::new();
+    linearizable(q.new_root());
 }

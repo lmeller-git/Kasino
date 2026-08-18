@@ -120,6 +120,7 @@ where
 }
 
 /// Runs a double collect on a dequeu. This strategy promises empty-linearizability
+#[derive(Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy)]
 pub struct DoubleCollect<S>(S);
 
 #[allow(unnameable_types)]

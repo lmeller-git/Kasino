@@ -1,6 +1,6 @@
 use crate::{
     InlineLope,
-    schedule::DCBO,
+    schedule::{DCBO, DoubleCollect},
     sync::{
         Arc,
         Mutex,
@@ -15,6 +15,32 @@ use crate::{
         retry_enqueue,
     },
 };
+
+pub(crate) fn linearizable<Q>(mut q: Q)
+where
+    Q: MutAccessForkCollection<Item = u32> + Sync + Send + 'static,
+{
+    const COUNT: usize = 1;
+    const THREADS: usize = 2;
+
+    let mut threads = Vec::new();
+
+    for _ in 0..THREADS {
+        let mut q2 = q.fork();
+        threads.push(thread::spawn(move || {
+            for _ in 0..COUNT {
+                while q2.enqueue(42).is_err() {
+                    thread::yield_now();
+                }
+                q2.dequeue().unwrap();
+            }
+        }));
+    }
+
+    for t in threads {
+        t.join().unwrap();
+    }
+}
 
 pub(crate) fn spsc<Q>(mut q: Q)
 where
@@ -98,4 +124,13 @@ fn mpsc_impl() {
             Box::leak(Box::new(InlineLope::new()));
         mpsc(q.new_root());
     });
+}
+
+#[test]
+fn linearizable_impl() {
+    loom::model(|| {
+        let q: &'static InlineLope<LockedDeque<u32>, DoubleCollect<DCBO>, 3, 1> =
+            Box::leak(Box::new(InlineLope::new()));
+        linearizable(q.new_root());
+    })
 }

@@ -1,7 +1,7 @@
 use crate::{
     InlineLope,
-    schedule::DCBO,
-    tests::test_library::{LockedDeque, mpmc, mpmc_ring_buffer, mpsc, spsc},
+    schedule::{DCBO, DoubleCollect},
+    tests::test_library::{LockedDeque, linearizable, mpmc, mpmc_ring_buffer, mpsc, spsc},
 };
 
 const RETRIES: usize = 1000;
@@ -53,4 +53,16 @@ fn mpmc_ring_buffer_impl() {
         RETRIES,
         DEPTH,
     );
+}
+
+#[test]
+fn linearizable_impl() {
+    shuttle::check_pct(
+        || {
+            let q: InlineLope<LockedDeque<u32>, DoubleCollect<DCBO>, 2> = InlineLope::new();
+            linearizable(q.new_root());
+        },
+        RETRIES,
+        DEPTH,
+    )
 }

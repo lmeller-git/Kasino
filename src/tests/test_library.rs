@@ -21,6 +21,7 @@ pub(crate) trait MutAccessForkCollection {
     fn is_empty(&self) -> bool;
     fn is_full(&self) -> bool;
 
+    /// Note that this is not an actual force push: evicting an item from sub collection K does not mean the other K - 1 subcollections now have a free spot. It does not mean the next enqueue will succeed sequentially.
     fn force_push(&mut self, item: Self::Item) -> Option<Self::Item> {
         let mut item_container = None;
         self.force_push_and_do(item, |item| {
@@ -29,6 +30,7 @@ pub(crate) trait MutAccessForkCollection {
         item_container
     }
 
+    /// Note that this is not an actual force push: evicting an item from sub collection K does not mean the other K - 1 subcollections now have a free spot. It does not mean the next enqueue will succeed sequentially.
     fn force_push_and_do<F>(&mut self, mut item: Self::Item, mut f: F)
     where
         F: FnMut(Self::Item),
@@ -494,5 +496,31 @@ mod tests {
         for c in v {
             assert_eq!(c.load(Ordering::SeqCst), THREADS);
         }
+    }
+
+    /// empty-linearizability on non-relaxed specification
+    pub(crate) fn linearizable<Q>(mut q: Q)
+    where
+        Q: MutAccessForkCollection<Item = u32> + Sync + Send,
+    {
+        #[cfg(any(miri, loom, shuttle))]
+        const COUNT: usize = 50;
+        #[cfg(not(any(miri, loom, shuttle)))]
+        const COUNT: usize = 25_000;
+        const THREADS: usize = 4;
+
+        scope(|scope| {
+            for _ in 0..THREADS {
+                let mut arm = q.fork();
+                scope.spawn(move || {
+                    for _ in 0..COUNT {
+                        while arm.enqueue(42).is_err() {
+                            Backoff::new().backoff();
+                        }
+                        arm.dequeue().unwrap();
+                    }
+                });
+            }
+        });
     }
 }
