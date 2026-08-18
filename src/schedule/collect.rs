@@ -206,9 +206,7 @@ impl<S: Schedule<T>, T> Schedule<T> for DoubleCollect<S> {
 
             for (stored_epoch, item) in versions.iter().zip(state.iter()) {
                 let epoch = item.e.load(Ordering::Acquire);
-                if let Some(e) = stored_epoch
-                    && *e < epoch
-                {
+                if stored_epoch.is_some_and(|e| e < epoch) {
                     continue 'collect;
                 }
             }
