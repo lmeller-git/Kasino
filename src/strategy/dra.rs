@@ -30,9 +30,9 @@ impl<Q: Collection, const CHOOSE: usize> Strategy<Q> for DRA<CHOOSE> {
             .map(|_| arm.rng.random_range(..state.len()))
             .min_by_key(|&i| {
                 state[i]
-                    .enq
+                    .offer_count
                     .load(Ordering::Relaxed)
-                    .saturating_sub(state[i].deq.load(Ordering::Relaxed))
+                    .saturating_sub(state[i].poll_count.load(Ordering::Relaxed))
             })
             .unwrap()
     }
@@ -46,9 +46,9 @@ impl<Q: Collection, const CHOOSE: usize> Strategy<Q> for DRA<CHOOSE> {
             .map(|_| arm.rng.random_range(..state.len()))
             .max_by_key(|&i| {
                 state[i]
-                    .deq
+                    .poll_count
                     .load(Ordering::Relaxed)
-                    .saturating_sub(state[i].enq.load(Ordering::Relaxed))
+                    .saturating_sub(state[i].offer_count.load(Ordering::Relaxed))
             })
             .unwrap()
     }

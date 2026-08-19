@@ -28,7 +28,7 @@ impl<Q: Collection, const CHOOSE: usize> Strategy<Q> for DCBO<CHOOSE> {
     ) -> usize {
         (0..CHOOSE)
             .map(|_| arm.rng.random_range(..state.len()))
-            .min_by_key(|&i| state[i].enq.load(Ordering::Relaxed))
+            .min_by_key(|&i| state[i].offer_count.load(Ordering::Relaxed))
             .unwrap()
     }
 
@@ -39,7 +39,7 @@ impl<Q: Collection, const CHOOSE: usize> Strategy<Q> for DCBO<CHOOSE> {
     ) -> usize {
         (0..CHOOSE)
             .map(|_| arm.rng.random_range(..state.len()))
-            .min_by_key(|&i| state[i].deq.load(Ordering::Relaxed))
+            .min_by_key(|&i| state[i].poll_count.load(Ordering::Relaxed))
             .unwrap()
     }
 

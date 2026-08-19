@@ -119,13 +119,13 @@ pub struct DbgState<T> {
 
 #[cfg(debug_assertions)]
 impl<T> DbgState<T> {
-    /// the enqueue count
-    pub fn enq(&self) -> usize {
+    /// The count of offers on a sub collection
+    pub fn offer_count(&self) -> usize {
         self.offer_count.load(Ordering::Relaxed)
     }
 
-    /// the dequeue count
-    pub fn deq(&self) -> usize {
+    /// The count of polls on a sub collection
+    pub fn poll_count(&self) -> usize {
         self.poll_count.load(Ordering::Relaxed)
     }
 }
@@ -176,29 +176,29 @@ where
     }
 }
 
-/// a state that stores enqueue and dequeue count
+/// Stores the count of succesful offers and polls on a sub collection
 #[derive(Default, Debug)]
 pub struct EDCount {
-    enq: AtomicUsize,
-    deq: AtomicUsize,
+    offer_count: AtomicUsize,
+    poll_count: AtomicUsize,
 }
 
 impl Clone for EDCount {
     fn clone(&self) -> Self {
         Self {
-            enq: self.enq.load(Ordering::Relaxed).into(),
-            deq: self.deq.load(Ordering::Relaxed).into(),
+            offer_count: self.offer_count.load(Ordering::Relaxed).into(),
+            poll_count: self.poll_count.load(Ordering::Relaxed).into(),
         }
     }
 }
 
 impl Hook for EDCount {
     fn on_offer_succ(&self) {
-        self.enq.fetch_add(1, Ordering::Relaxed);
+        self.offer_count.fetch_add(1, Ordering::Relaxed);
     }
 
     fn on_poll_succ(&self) {
-        self.deq.fetch_add(1, Ordering::Relaxed);
+        self.poll_count.fetch_add(1, Ordering::Relaxed);
     }
 }
 
