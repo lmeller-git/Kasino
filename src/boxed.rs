@@ -74,11 +74,11 @@ pub type BoxedBanditHandle<
 > = BanditHandle<'a, Q, S, BoxedStorage<Q>, BoxedStorage<<S::Gambler as Hooked>::Stake>, SUB_CAP>;
 
 /// a subcollection container, which is stored dynamically
-pub struct BoxedLope<Q: Collection, S: Strategy<Q>, const SUB_CAP: usize = DEFAULT_QUEUE_CAP> {
+pub struct BoxedBandit<Q: Collection, S: Strategy<Q>, const SUB_CAP: usize = DEFAULT_QUEUE_CAP> {
     raw: BanditCore<Q, S, BoxedStorage<Q>, BoxedStorage<<S::Gambler as Hooked>::Stake>, SUB_CAP>,
 }
 
-impl<Q, S, const SUB_CAP: usize> BoxedLope<Q, S, SUB_CAP>
+impl<Q, S, const SUB_CAP: usize> BoxedBandit<Q, S, SUB_CAP>
 where
     Q: WithCapacity<SUB_CAP>,
     S: Strategy<Q> + Default,
