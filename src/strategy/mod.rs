@@ -22,7 +22,7 @@ use crate::{
     sync::atomic::{AtomicUsize, Ordering},
 };
 
-/// A stratehie that determines which arm is pulled next by a gambler
+/// A strategy that determines which arm is pulled next by a gambler
 pub trait Strategy<Q: Collection> {
     /// An owned gambler, keeping track of its history to make decisions based on this strategy.
     type Gambler: Hooked;
@@ -41,7 +41,7 @@ pub trait Strategy<Q: Collection> {
     ) -> usize;
 
     /// forks a gambler into a new one
-    fn fork_gambler(&self, arm: &mut Self::Gambler) -> Self::Gambler;
+    fn fork_gambler(&self, parent: &mut Self::Gambler) -> Self::Gambler;
     /// creates a new owned gambler with default values
     fn create_gambler(&self) -> Self::Gambler;
 
@@ -66,11 +66,11 @@ pub trait Strategy<Q: Collection> {
 
 /// a hook for the stake in some sub collection
 pub trait Hook {
-    /// mutate the state on a succesful [`Collection::offer`]
+    /// mutate the state on a successful [`Collection::offer`]
     fn on_offer_succ(&self) {}
     /// mutate the state on a failed [`Collection::offer`]
     fn on_offer_fail(&self) {}
-    /// mutate the state on a succesful [`Collection::poll`]
+    /// mutate the state on a successful [`Collection::poll`]
     fn on_poll_succ(&self) {}
     /// mutate the state on a failed [`Collection::poll`]
     fn on_poll_fail(&self) {}
@@ -80,7 +80,7 @@ pub trait Hook {
 pub trait Hooked {
     /// The type of stake in a sub collection associated with this hook
     type Stake: Default + Hook;
-    /// Update the gambler on a succesful [`Collection::offer`]
+    /// Update the gambler on a successful [`Collection::offer`]
     fn on_offer_succ(&mut self, sub_state: &Self::Stake) {
         sub_state.on_offer_succ();
     }
@@ -90,7 +90,7 @@ pub trait Hooked {
         sub_state.on_offer_fail();
     }
 
-    /// Update the gambler on a succesful [`Collection::poll`]
+    /// Update the gambler on a successful [`Collection::poll`]
     fn on_poll_succ(&mut self, sub_state: &Self::Stake) {
         sub_state.on_poll_succ();
     }

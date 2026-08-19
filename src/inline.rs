@@ -65,7 +65,7 @@ impl<T, const N: usize> IndexMut<usize> for InlineStorage<T, N> {
     }
 }
 
-/// A handle to the core subcollection storage that is stored inline
+/// A handle to an [`InlineBandit`].
 #[allow(type_alias_bounds)]
 pub type InlineBanditHandle<
     'a,
@@ -82,7 +82,7 @@ pub type InlineBanditHandle<
     SUB_CAP,
 >;
 
-/// a subcollections storage that is stored inline
+/// A container of `N` sub collections that is stored inline.
 pub struct InlineBandit<
     Q: Collection,
     S: Strategy<Q>,
@@ -103,7 +103,7 @@ where
     Q: WithCapacity<SUB_CAP>,
     S: Strategy<Q> + Default,
 {
-    /// constructs a new `InlineLope`
+    /// constructs a new `InlineBandit`
     pub fn new() -> Self {
         Self {
             raw: BanditCore::new_with(
@@ -113,7 +113,7 @@ where
         }
     }
 
-    /// constructs a new handle to this collection
+    /// constructs a new handle to this `InlineBandit`
     pub fn buy_in(&self) -> InlineBanditHandle<'_, Q, S, N, SUB_CAP> {
         self.raw.buy_in()
     }

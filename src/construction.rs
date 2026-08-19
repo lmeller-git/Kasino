@@ -11,7 +11,7 @@ pub(crate) const DEFAULT_QUEUE_CAP: usize = 32;
 
 #[derive(PartialEq, Eq, PartialOrd, Ord, Debug, Clone, Hash)]
 pub(crate) struct BanditCore<Q, S, B, C, const SUB_CAP: usize = DEFAULT_QUEUE_CAP> {
-    scheduler: S,
+    strategy: S,
     sub_collections: B,
     collection_state: C,
     _p: PhantomData<Q>,
@@ -23,7 +23,7 @@ where
 {
     pub(crate) fn new_with(queues: B, states: C) -> Self {
         Self {
-            scheduler: S::default(),
+            strategy: S::default(),
             sub_collections: queues,
             collection_state: states,
             _p: PhantomData,
@@ -49,7 +49,7 @@ where
     pub(crate) fn buy_in(&self) -> BanditHandle<'_, Q, S, B, C, SUB_CAP> {
         BanditHandle {
             parent: self,
-            arm: self.scheduler.create_gambler(),
+            gambler: self.strategy.create_gambler(),
         }
     }
 }
@@ -67,7 +67,7 @@ pub struct BanditHandle<
     const SUB_CAP: usize = DEFAULT_QUEUE_CAP,
 > {
     parent: &'a BanditCore<Q, S, B, C, SUB_CAP>,
-    arm: S::Gambler,
+    gambler: S::Gambler,
 }
 
 impl<'a, Q, S, B, C, const SUB_CAP: usize> BanditHandle<'a, Q, S, B, C, SUB_CAP>
@@ -81,7 +81,7 @@ where
     pub fn fork(&mut self) -> Self {
         Self {
             parent: self.parent,
-            arm: S::fork_gambler(&self.parent.scheduler, &mut self.arm),
+            gambler: S::fork_gambler(&self.parent.strategy, &mut self.gambler),
         }
     }
 
@@ -95,15 +95,15 @@ where
     > {
         let i = self
             .parent
-            .scheduler
-            .choose_offer_arm(&self.parent.collection_state, &mut self.arm);
+            .strategy
+            .choose_offer_arm(&self.parent.collection_state, &mut self.gambler);
         match self.parent.sub_collections[i].offer(item) {
             Ok(r) => {
-                self.arm.on_offer_succ(&self.parent.collection_state[i]);
+                self.gambler.on_offer_succ(&self.parent.collection_state[i]);
                 Ok(r)
             }
             Err(e) => {
-                self.arm.on_offer_fail(&self.parent.collection_state[i]);
+                self.gambler.on_offer_fail(&self.parent.collection_state[i]);
                 Err(e)
             }
         }
@@ -121,22 +121,23 @@ where
     > {
         let i = self
             .parent
-            .scheduler
-            .choose_poll_arm(&self.parent.collection_state, &mut self.arm);
+            .strategy
+            .choose_poll_arm(&self.parent.collection_state, &mut self.gambler);
         match self.parent.sub_collections[i].poll(input) {
             Ok(r) => {
-                self.arm.on_poll_succ(&self.parent.collection_state[i]);
+                self.gambler.on_poll_succ(&self.parent.collection_state[i]);
                 Ok(r)
             }
             Err(e) => {
-                self.arm.on_poll_fail(&self.parent.collection_state[i]);
-                let r = self.parent.scheduler.collect(
+                self.gambler.on_poll_fail(&self.parent.collection_state[i]);
+                let r = self.parent.strategy.collect(
                     &self.parent.collection_state,
                     &self.parent.sub_collections,
                     input,
                 );
                 if let Some((r, state)) = r {
-                    self.arm.on_poll_succ(&self.parent.collection_state[state]);
+                    self.gambler
+                        .on_poll_succ(&self.parent.collection_state[state]);
                     Ok(r)
                 } else {
                     Err(e)
@@ -162,22 +163,23 @@ where
     {
         let i = self
             .parent
-            .scheduler
-            .choose_poll_arm(&self.parent.collection_state, &mut self.arm);
+            .strategy
+            .choose_poll_arm(&self.parent.collection_state, &mut self.gambler);
         match self.parent.sub_collections[i].poll(input) {
             Ok(r) => {
-                self.arm.on_poll_succ(&self.parent.collection_state[i]);
+                self.gambler.on_poll_succ(&self.parent.collection_state[i]);
                 (Ok(r), self.parent.collection_state[i].clone())
             }
             Err(e) => {
-                self.arm.on_poll_fail(&self.parent.collection_state[i]);
-                let r = self.parent.scheduler.collect(
+                self.gambler.on_poll_fail(&self.parent.collection_state[i]);
+                let r = self.parent.strategy.collect(
                     &self.parent.collection_state,
                     &self.parent.sub_collections,
                     input,
                 );
                 if let Some((r, state)) = r {
-                    self.arm.on_poll_succ(&self.parent.collection_state[state]);
+                    self.gambler
+                        .on_poll_succ(&self.parent.collection_state[state]);
                     (Ok(r), self.parent.collection_state[state].clone())
                 } else {
                     (Err(e), self.parent.collection_state[i].clone())
@@ -239,22 +241,23 @@ where
     > {
         let i = self
             .parent
-            .scheduler
-            .choose_poll_arm(&self.parent.collection_state, &mut self.arm);
+            .strategy
+            .choose_poll_arm(&self.parent.collection_state, &mut self.gambler);
         match self.parent.sub_collections[i].poll(input) {
             Ok(r) => {
-                self.arm.on_poll_succ(&self.parent.collection_state[i]);
+                self.gambler.on_poll_succ(&self.parent.collection_state[i]);
                 Ok((r, i))
             }
             Err(e) => {
-                self.arm.on_poll_fail(&self.parent.collection_state[i]);
-                let r = self.parent.scheduler.collect(
+                self.gambler.on_poll_fail(&self.parent.collection_state[i]);
+                let r = self.parent.strategy.collect(
                     &self.parent.collection_state,
                     &self.parent.sub_collections,
                     input,
                 );
                 if let Some((r, state)) = r {
-                    self.arm.on_poll_succ(&self.parent.collection_state[state]);
+                    self.gambler
+                        .on_poll_succ(&self.parent.collection_state[state]);
                     Ok((r, state))
                 } else {
                     Err(e)
