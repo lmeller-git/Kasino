@@ -7,9 +7,9 @@ use crossbeam_utils::CachePadded;
 
 use crate::{
     Collection,
-    IODescription,
-    schedule::{Hook, Hooked, Schedule},
+    Signature,
     storage::StorageBackend,
+    strategy::{Hook, Hooked, Strategy},
     sync::atomic::{AtomicUsize, Ordering},
 };
 
@@ -17,39 +17,39 @@ use crate::{
 #[derive(Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy)]
 pub struct NoCollect<S>(S);
 
-impl<Q: Collection, S: Schedule<Q>> Schedule<Q> for NoCollect<S> {
-    type Arm = S::Arm;
+impl<Q: Collection, S: Strategy<Q>> Strategy<Q> for NoCollect<S> {
+    type Gambler = S::Gambler;
 
-    fn choose_offer_shard(
+    fn choose_offer_arm(
         &self,
-        state: &impl StorageBackend<<Self::Arm as Hooked>::State>,
-        arm: &mut Self::Arm,
+        state: &impl StorageBackend<<Self::Gambler as Hooked>::Stake>,
+        arm: &mut Self::Gambler,
     ) -> usize {
-        self.0.choose_offer_shard(state, arm)
+        self.0.choose_offer_arm(state, arm)
     }
 
-    fn choose_poll_shard(
+    fn choose_poll_arm(
         &self,
-        choose_to: &impl StorageBackend<<Self::Arm as Hooked>::State>,
-        arm: &mut Self::Arm,
+        choose_to: &impl StorageBackend<<Self::Gambler as Hooked>::Stake>,
+        arm: &mut Self::Gambler,
     ) -> usize {
-        self.0.choose_poll_shard(choose_to, arm)
+        self.0.choose_poll_arm(choose_to, arm)
     }
 
-    fn fork_arm(&self, arm: &mut Self::Arm) -> Self::Arm {
-        self.0.fork_arm(arm)
+    fn fork_gambler(&self, arm: &mut Self::Gambler) -> Self::Gambler {
+        self.0.fork_gambler(arm)
     }
 
-    fn create_arm(&self) -> Self::Arm {
-        self.0.create_arm()
+    fn create_gambler(&self) -> Self::Gambler {
+        self.0.create_gambler()
     }
 
     fn collect<'b, 'c>(
         &self,
-        _state: &impl StorageBackend<<Self::Arm as Hooked>::State>,
+        _state: &impl StorageBackend<<Self::Gambler as Hooked>::Stake>,
         _sub_collections: &'c impl StorageBackend<Q>,
-        _input: <Q::PollIO as IODescription>::Input<'b>,
-    ) -> Option<(<Q::PollIO as IODescription>::Output<'b, 'c>, usize)>
+        _input: <Q::PollSignature as Signature>::Input<'b>,
+    ) -> Option<(<Q::PollSignature as Signature>::Output<'b, 'c>, usize)>
     where
         Q: 'c,
     {
@@ -148,7 +148,7 @@ impl<'a, S> View<'a, S> for DoubleCollectState<S> {
 }
 
 impl<A: Hooked> Hooked for DoubleCollectArm<A> {
-    type State = CachePadded<DoubleCollectState<A::State>>;
+    type Stake = CachePadded<DoubleCollectState<A::Stake>>;
 }
 
 impl<T: Hook> Hook for DoubleCollectState<T> {
@@ -161,48 +161,48 @@ impl<T: Hook> Hook for DoubleCollectState<T> {
     }
 }
 
-impl<S: Schedule<Q>, Q: Collection> Schedule<Q> for DoubleCollect<S> {
-    type Arm = DoubleCollectArm<S::Arm>;
+impl<S: Strategy<Q>, Q: Collection> Strategy<Q> for DoubleCollect<S> {
+    type Gambler = DoubleCollectArm<S::Gambler>;
 
-    fn choose_offer_shard(
+    fn choose_offer_arm(
         &self,
-        state: &impl StorageBackend<<Self::Arm as Hooked>::State>,
-        arm: &mut Self::Arm,
+        state: &impl StorageBackend<<Self::Gambler as Hooked>::Stake>,
+        arm: &mut Self::Gambler,
     ) -> usize {
         let idx = self
             .0
-            .choose_offer_shard(&StorageView::new(state), &mut arm.a);
+            .choose_offer_arm(&StorageView::new(state), &mut arm.a);
         state[idx].e.fetch_add(1, Ordering::Release);
         idx
     }
 
-    fn choose_poll_shard(
+    fn choose_poll_arm(
         &self,
-        choose_to: &impl StorageBackend<<Self::Arm as Hooked>::State>,
-        arm: &mut Self::Arm,
+        choose_to: &impl StorageBackend<<Self::Gambler as Hooked>::Stake>,
+        arm: &mut Self::Gambler,
     ) -> usize {
         self.0
-            .choose_poll_shard(&StorageView::new(choose_to), &mut arm.a)
+            .choose_poll_arm(&StorageView::new(choose_to), &mut arm.a)
     }
 
-    fn fork_arm(&self, arm: &mut Self::Arm) -> Self::Arm {
+    fn fork_gambler(&self, arm: &mut Self::Gambler) -> Self::Gambler {
         DoubleCollectArm {
-            a: self.0.fork_arm(&mut arm.a),
+            a: self.0.fork_gambler(&mut arm.a),
         }
     }
 
-    fn create_arm(&self) -> Self::Arm {
+    fn create_gambler(&self) -> Self::Gambler {
         DoubleCollectArm {
-            a: self.0.create_arm(),
+            a: self.0.create_gambler(),
         }
     }
 
     fn collect<'b, 'c>(
         &self,
-        state: &impl StorageBackend<<Self::Arm as Hooked>::State>,
+        state: &impl StorageBackend<<Self::Gambler as Hooked>::Stake>,
         sub_collections: &'c impl StorageBackend<Q>,
-        input: <Q::PollIO as IODescription>::Input<'b>,
-    ) -> Option<(<Q::PollIO as IODescription>::Output<'b, 'c>, usize)>
+        input: <Q::PollSignature as Signature>::Input<'b>,
+    ) -> Option<(<Q::PollSignature as Signature>::Output<'b, 'c>, usize)>
     where
         Q: 'c,
     {

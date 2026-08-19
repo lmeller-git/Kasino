@@ -5,7 +5,7 @@
 [![Crates.io](https://img.shields.io/crates/v/lope)](https://crates.io/crates/lope)
 [![Docs.rs](https://docs.rs/lope/badge.svg)](https://docs.rs/lope)
 
-# Lope
+# Kasino
 
 
 <!-- cargo-rdme start -->
@@ -22,18 +22,16 @@ Additionally an interface for defining custom schedulers is available.
 ### Usage
 
 ```rust
-use lope::{InlineLope, schedule::DCBO};
-// Create a Lope wrapping your datastructure
-let container = InlineLope::<MyQueue<i32>, DCBO, 8>::new();
-// Create a new owned handle to this container
-let mut my_handle = container.new_root();
-// fork this handle
-let mut my_handle2 = my_handle.fork();
+use kasino::{InlineBandit, strategy::DCBO};
 
-// It implements all operations of a Collection
-assert!(my_handle.push(42).is_ok());
-assert!(my_handle2.push(10).is_ok());
-_ = my_handle.pop();
+let bandit = InlineBandit::<MyQueue<i32>, DCBO, 8>::new();
+
+let mut handle = bandit.buy_in();
+let mut handle2 = handle.fork();
+
+assert!(handle.offer(42).is_ok());
+assert!(handle2.offer(10).is_ok());
+assert!(handle.poll(()).is_ok());
 ```
 
 ### Property preservation

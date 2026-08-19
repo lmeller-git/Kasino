@@ -1,6 +1,6 @@
 use crate::{
-    InlineLope,
-    schedule::{DCBO, DoubleCollect},
+    InlineBandit,
+    strategy::{DCBO, DoubleCollect},
     sync::{
         Arc,
         Mutex,
@@ -111,26 +111,26 @@ where
 #[test]
 fn spsc_impl() {
     loom::model(|| {
-        let q: &'static InlineLope<LockedDeque<u32>, DCBO, 3, 1> =
-            Box::leak(Box::new(InlineLope::new()));
-        spsc(q.new_root());
+        let q: &'static InlineBandit<LockedDeque<u32>, DCBO, 3, 1> =
+            Box::leak(Box::new(InlineBandit::new()));
+        spsc(q.buy_in());
     });
 }
 
 #[test]
 fn mpsc_impl() {
     loom::model(|| {
-        let q: &'static InlineLope<LockedDeque<u32>, DCBO, 3, 1> =
-            Box::leak(Box::new(InlineLope::new()));
-        mpsc(q.new_root());
+        let q: &'static InlineBandit<LockedDeque<u32>, DCBO, 3, 1> =
+            Box::leak(Box::new(InlineBandit::new()));
+        mpsc(q.buy_in());
     });
 }
 
 #[test]
 fn linearizable_impl() {
     loom::model(|| {
-        let q: &'static InlineLope<LockedDeque<u32>, DoubleCollect<DCBO>, 3, 1> =
-            Box::leak(Box::new(InlineLope::new()));
-        linearizable(q.new_root());
+        let q: &'static InlineBandit<LockedDeque<u32>, DoubleCollect<DCBO>, 3, 1> =
+            Box::leak(Box::new(InlineBandit::new()));
+        linearizable(q.buy_in());
     })
 }

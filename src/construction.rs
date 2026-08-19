@@ -2,22 +2,22 @@ use core::marker::PhantomData;
 
 use crate::{
     Collection,
-    IODescription,
-    schedule::{Hooked, Schedule},
+    Signature,
     storage::StorageBackend,
+    strategy::{Hooked, Strategy},
 };
 
 pub(crate) const DEFAULT_QUEUE_CAP: usize = 32;
 
 #[derive(PartialEq, Eq, PartialOrd, Ord, Debug, Clone, Hash)]
-pub(crate) struct LopeCore<Q, S, B, C, const SUB_CAP: usize = DEFAULT_QUEUE_CAP> {
+pub(crate) struct BanditCore<Q, S, B, C, const SUB_CAP: usize = DEFAULT_QUEUE_CAP> {
     scheduler: S,
     sub_collections: B,
     collection_state: C,
     _p: PhantomData<Q>,
 }
 
-impl<Q, S, B, C, const SUB_CAP: usize> LopeCore<Q, S, B, C, SUB_CAP>
+impl<Q, S, B, C, const SUB_CAP: usize> BanditCore<Q, S, B, C, SUB_CAP>
 where
     S: Default,
 {
@@ -31,70 +31,70 @@ where
     }
 }
 
-impl<Q, S, B, C, const SUB_CAP: usize> LopeCore<Q, S, B, C, SUB_CAP>
+impl<Q, S, B, C, const SUB_CAP: usize> BanditCore<Q, S, B, C, SUB_CAP>
 where
     B: StorageBackend<Q>,
 {
     /// returns the number of subqueues
-    pub(crate) fn nbr_subqueues(&self) -> usize {
+    pub(crate) fn arm_count(&self) -> usize {
         self.sub_collections.len()
     }
 }
 
-impl<Q, S, B, C, const SUB_CAP: usize> LopeCore<Q, S, B, C, SUB_CAP>
+impl<Q, S, B, C, const SUB_CAP: usize> BanditCore<Q, S, B, C, SUB_CAP>
 where
-    S: Schedule<Q>,
+    S: Strategy<Q>,
     Q: Collection,
 {
-    pub(crate) fn new_root(&self) -> LopeCoreArm<'_, Q, S, B, C, SUB_CAP> {
-        LopeCoreArm {
+    pub(crate) fn buy_in(&self) -> BanditHandle<'_, Q, S, B, C, SUB_CAP> {
+        BanditHandle {
             parent: self,
-            arm: self.scheduler.create_arm(),
+            arm: self.scheduler.create_gambler(),
         }
     }
 }
 
 /// An owned handle into the core collection. May be used for mutabel access of some fields
 #[derive(PartialEq, Eq, PartialOrd, Ord, Debug, Hash)]
-pub struct LopeCoreArm<
+pub struct BanditHandle<
     'a,
     Q: Collection,
-    S: Schedule<Q>,
+    S: Strategy<Q>,
     B,
     C,
     const SUB_CAP: usize = DEFAULT_QUEUE_CAP,
 > {
-    parent: &'a LopeCore<Q, S, B, C, SUB_CAP>,
-    arm: S::Arm,
+    parent: &'a BanditCore<Q, S, B, C, SUB_CAP>,
+    arm: S::Gambler,
 }
 
-impl<'a, Q, S, B, C, const SUB_CAP: usize> LopeCoreArm<'a, Q, S, B, C, SUB_CAP>
+impl<'a, Q, S, B, C, const SUB_CAP: usize> BanditHandle<'a, Q, S, B, C, SUB_CAP>
 where
     Q: Collection,
-    S: Schedule<Q>,
+    S: Strategy<Q>,
     B: StorageBackend<Q>,
-    C: StorageBackend<<S::Arm as Hooked>::State>,
+    C: StorageBackend<<S::Gambler as Hooked>::Stake>,
 {
     /// fork this handle into a new one
     pub fn fork(&mut self) -> Self {
         Self {
             parent: self.parent,
-            arm: S::fork_arm(&self.parent.scheduler, &mut self.arm),
+            arm: S::fork_gambler(&self.parent.scheduler, &mut self.arm),
         }
     }
 
     /// push an item into one of the underlying subcollections
     pub fn offer<'b, 'c>(
         &'c mut self,
-        item: <Q::OfferIO as IODescription>::Input<'b>,
+        item: <Q::OfferSignature as Signature>::Input<'b>,
     ) -> Result<
-        <Q::OfferIO as IODescription>::Output<'b, 'c>,
-        <Q::OfferIO as IODescription>::Error<'b, 'c>,
+        <Q::OfferSignature as Signature>::Output<'b, 'c>,
+        <Q::OfferSignature as Signature>::Error<'b, 'c>,
     > {
         let i = self
             .parent
             .scheduler
-            .choose_offer_shard(&self.parent.collection_state, &mut self.arm);
+            .choose_offer_arm(&self.parent.collection_state, &mut self.arm);
         match self.parent.sub_collections[i].offer(item) {
             Ok(r) => {
                 self.arm.on_offer_succ(&self.parent.collection_state[i]);
@@ -110,15 +110,15 @@ where
     /// pop and item from one of the underlying subcollections
     pub fn poll<'b, 'c>(
         &'c mut self,
-        input: <Q::PollIO as IODescription>::Input<'b>,
+        input: <Q::PollSignature as Signature>::Input<'b>,
     ) -> Result<
-        <Q::PollIO as IODescription>::Output<'b, 'c>,
-        <Q::PollIO as IODescription>::Error<'b, 'c>,
+        <Q::PollSignature as Signature>::Output<'b, 'c>,
+        <Q::PollSignature as Signature>::Error<'b, 'c>,
     > {
         let i = self
             .parent
             .scheduler
-            .choose_poll_shard(&self.parent.collection_state, &mut self.arm);
+            .choose_poll_arm(&self.parent.collection_state, &mut self.arm);
         match self.parent.sub_collections[i].poll(input) {
             Ok(r) => {
                 self.arm.on_poll_succ(&self.parent.collection_state[i]);
@@ -145,21 +145,21 @@ where
     #[allow(clippy::type_complexity)]
     pub fn poll_with_info<'b, 'c>(
         &'c mut self,
-        input: <Q::PollIO as IODescription>::Input<'b>,
+        input: <Q::PollSignature as Signature>::Input<'b>,
     ) -> (
         Result<
-            <Q::PollIO as IODescription>::Output<'b, 'c>,
-            <Q::PollIO as IODescription>::Error<'b, 'c>,
+            <Q::PollSignature as Signature>::Output<'b, 'c>,
+            <Q::PollSignature as Signature>::Error<'b, 'c>,
         >,
-        <S::Arm as Hooked>::State,
+        <S::Gambler as Hooked>::Stake,
     )
     where
-        <S::Arm as Hooked>::State: Clone,
+        <S::Gambler as Hooked>::Stake: Clone,
     {
         let i = self
             .parent
             .scheduler
-            .choose_poll_shard(&self.parent.collection_state, &mut self.arm);
+            .choose_poll_arm(&self.parent.collection_state, &mut self.arm);
         match self.parent.sub_collections[i].poll(input) {
             Ok(r) => {
                 self.arm.on_poll_succ(&self.parent.collection_state[i]);
@@ -183,7 +183,7 @@ where
     }
 
     /// state of the scheduler/queues
-    pub fn state(&self) -> impl Iterator<Item = &<S::Arm as Hooked>::State> {
+    pub fn state(&self) -> impl Iterator<Item = &<S::Gambler as Hooked>::Stake> {
         self.parent.collection_state.iter()
     }
 
@@ -203,40 +203,40 @@ where
     }
 }
 
-impl<'a, Q, S, B, C, const SUB_CAP: usize> LopeCoreArm<'a, Q, S, B, C, SUB_CAP>
+impl<'a, Q, S, B, C, const SUB_CAP: usize> BanditHandle<'a, Q, S, B, C, SUB_CAP>
 where
     B: StorageBackend<Q>,
-    S: Schedule<Q>,
+    S: Strategy<Q>,
     Q: Collection,
 {
     /// returns the number of subqueues
     pub fn nbr_subqueues(&self) -> usize {
-        self.parent.nbr_subqueues()
+        self.parent.arm_count()
     }
 }
 
 #[cfg(test)]
-impl<'a, Q, S, B, C, const SUB_CAP: usize> LopeCoreArm<'a, Q, S, B, C, SUB_CAP>
+impl<'a, Q, S, B, C, const SUB_CAP: usize> BanditHandle<'a, Q, S, B, C, SUB_CAP>
 where
     Q: Collection,
-    S: Schedule<Q>,
+    S: Strategy<Q>,
     B: StorageBackend<Q>,
-    C: StorageBackend<<S::Arm as Hooked>::State>,
+    C: StorageBackend<<S::Gambler as Hooked>::Stake>,
 {
     /// polls and returns the index of the shard from which we polled
     #[allow(unused)]
     #[allow(clippy::type_complexity)]
     pub fn poll_with_idx<'b, 'c>(
         &'c mut self,
-        input: <Q::PollIO as IODescription>::Input<'b>,
+        input: <Q::PollSignature as Signature>::Input<'b>,
     ) -> Result<
-        (<Q::PollIO as IODescription>::Output<'b, 'c>, usize),
-        <Q::PollIO as IODescription>::Error<'b, 'c>,
+        (<Q::PollSignature as Signature>::Output<'b, 'c>, usize),
+        <Q::PollSignature as Signature>::Error<'b, 'c>,
     > {
         let i = self
             .parent
             .scheduler
-            .choose_poll_shard(&self.parent.collection_state, &mut self.arm);
+            .choose_poll_arm(&self.parent.collection_state, &mut self.arm);
         match self.parent.sub_collections[i].poll(input) {
             Ok(r) => {
                 self.arm.on_poll_succ(&self.parent.collection_state[i]);

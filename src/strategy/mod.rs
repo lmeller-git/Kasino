@@ -17,45 +17,45 @@ pub use round_robin::RoundRobin;
 
 use crate::{
     Collection,
-    IODescription,
+    Signature,
     storage::StorageBackend,
     sync::atomic::{AtomicUsize, Ordering},
 };
 
 /// A schedule that determins which arm to pull next
-pub trait Schedule<Q: Collection> {
+pub trait Strategy<Q: Collection> {
     /// An owned hook to the schedule
-    type Arm: Hooked;
+    type Gambler: Hooked;
 
     /// choose the next arm that we call push on
-    fn choose_offer_shard(
+    fn choose_offer_arm(
         &self,
-        state: &impl StorageBackend<<Self::Arm as Hooked>::State>,
-        arm: &mut Self::Arm,
+        state: &impl StorageBackend<<Self::Gambler as Hooked>::Stake>,
+        gambler: &mut Self::Gambler,
     ) -> usize;
     /// choose the next arm that we call pop on
-    fn choose_poll_shard(
+    fn choose_poll_arm(
         &self,
-        choose_to: &impl StorageBackend<<Self::Arm as Hooked>::State>,
-        arm: &mut Self::Arm,
+        state: &impl StorageBackend<<Self::Gambler as Hooked>::Stake>,
+        gambler: &mut Self::Gambler,
     ) -> usize;
 
     /// forks an owned hook into a new one
-    fn fork_arm(&self, arm: &mut Self::Arm) -> Self::Arm;
+    fn fork_gambler(&self, arm: &mut Self::Gambler) -> Self::Gambler;
     /// creates a new owned hook with default specs
-    fn create_arm(&self) -> Self::Arm;
+    fn create_gambler(&self) -> Self::Gambler;
 
     /// Run a collect strategy on a queue to ensure we collect any remaingin item if one exists.
     fn collect<'b, 'c>(
         &self,
-        _state: &impl StorageBackend<<Self::Arm as Hooked>::State>,
-        sub_collections: &'c impl StorageBackend<Q>,
-        input: <Q::PollIO as IODescription>::Input<'b>,
-    ) -> Option<(<Q::PollIO as IODescription>::Output<'b, 'c>, usize)>
+        _state: &impl StorageBackend<<Self::Gambler as Hooked>::Stake>,
+        bandit_arms: &'c impl StorageBackend<Q>,
+        input: <Q::PollSignature as Signature>::Input<'b>,
+    ) -> Option<(<Q::PollSignature as Signature>::Output<'b, 'c>, usize)>
     where
         Q: 'c,
     {
-        for (i, q) in sub_collections.iter().enumerate() {
+        for (i, q) in bandit_arms.iter().enumerate() {
             if let Ok(item) = q.poll(input) {
                 return Some((item, i));
             }
@@ -79,24 +79,24 @@ pub trait Hook {
 /// callbacks actuated by successful operations on Lope, which influence the schedulers next decision
 pub trait Hooked {
     /// The type of state associated with this hook
-    type State: Default + Hook;
+    type Stake: Default + Hook;
     /// mutate the state on a succesfull enqueue
-    fn on_offer_succ(&mut self, sub_state: &Self::State) {
+    fn on_offer_succ(&mut self, sub_state: &Self::Stake) {
         sub_state.on_offer_succ();
     }
 
     /// mutate the state on a failed enqueue
-    fn on_offer_fail(&mut self, sub_state: &Self::State) {
+    fn on_offer_fail(&mut self, sub_state: &Self::Stake) {
         sub_state.on_offer_fail();
     }
 
     /// mutatet the state on a succesfull dequeue
-    fn on_poll_succ(&mut self, sub_state: &Self::State) {
+    fn on_poll_succ(&mut self, sub_state: &Self::Stake) {
         sub_state.on_poll_succ();
     }
 
     /// mutate the state on a failed dequeue
-    fn on_poll_fail(&mut self, sub_state: &Self::State) {
+    fn on_poll_fail(&mut self, sub_state: &Self::Stake) {
         sub_state.on_poll_fail();
     }
 }

@@ -2,8 +2,8 @@ use rand::{RngExt, SeedableRng, rngs::SmallRng};
 
 use crate::{
     Collection,
-    schedule::{Hooked, InstrumentedState, NoPad, Schedule},
     storage::StorageBackend,
+    strategy::{Hooked, InstrumentedState, NoPad, Strategy},
 };
 
 /// a random scheduler
@@ -20,32 +20,32 @@ impl Default for RandomAccess<SmallRng> {
     }
 }
 
-impl<Q: Collection> Schedule<Q> for RandomAccess<SmallRng> {
-    type Arm = Self;
+impl<Q: Collection> Strategy<Q> for RandomAccess<SmallRng> {
+    type Gambler = Self;
 
-    fn choose_offer_shard(
+    fn choose_offer_arm(
         &self,
-        state: &impl StorageBackend<<Self::Arm as Hooked>::State>,
-        arm: &mut Self::Arm,
+        state: &impl StorageBackend<<Self::Gambler as Hooked>::Stake>,
+        arm: &mut Self::Gambler,
     ) -> usize {
         arm.rng.random_range(..state.len())
     }
 
-    fn choose_poll_shard(
+    fn choose_poll_arm(
         &self,
-        state: &impl StorageBackend<<Self::Arm as Hooked>::State>,
-        arm: &mut Self::Arm,
+        state: &impl StorageBackend<<Self::Gambler as Hooked>::Stake>,
+        arm: &mut Self::Gambler,
     ) -> usize {
         arm.rng.random_range(..state.len())
     }
 
-    fn fork_arm(&self, arm: &mut Self::Arm) -> Self::Arm {
+    fn fork_gambler(&self, arm: &mut Self::Gambler) -> Self::Gambler {
         Self {
             rng: arm.rng.fork(),
         }
     }
 
-    fn create_arm(&self) -> Self::Arm {
+    fn create_gambler(&self) -> Self::Gambler {
         Self {
             rng: SmallRng::seed_from_u64(42),
         }
@@ -53,5 +53,5 @@ impl<Q: Collection> Schedule<Q> for RandomAccess<SmallRng> {
 }
 
 impl Hooked for RandomAccess<SmallRng> {
-    type State = NoPad<InstrumentedState<()>>;
+    type Stake = NoPad<InstrumentedState<()>>;
 }

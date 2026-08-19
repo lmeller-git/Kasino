@@ -1,5 +1,5 @@
 [package]
-name = "lope"
+name = "kasino"
 version = "0.1.0"
 authors.workspace = true
 edition.workspace = true
@@ -43,7 +43,7 @@ categories = ["data-structures", "algorithms", "concurrency", "no-std"]
 rust-version = "1.85.0"
 
 [features]
-default = []
+default = ["alloc"]
 std = ["alloc"]
 alloc = []
 atomic-fallback = ["portable-atomic/fallback"]

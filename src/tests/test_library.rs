@@ -4,12 +4,12 @@ use core::marker::PhantomData;
 use std::collections::{HashSet, VecDeque};
 
 use crate::{
+    BanditHandle,
     Collection,
-    IODescription,
-    LopeCoreArm,
-    NewSized,
-    schedule::{Hooked, Schedule},
+    Signature,
+    WithCapacity,
     storage::StorageBackend,
+    strategy::{Hooked, Strategy},
     sync::Mutex,
 };
 
@@ -50,7 +50,7 @@ pub(crate) trait MutAccessForkCollection {
 
 pub(crate) struct QueueOfferIO<T>(PhantomData<T>);
 
-impl<T> IODescription for QueueOfferIO<T> {
+impl<T> Signature for QueueOfferIO<T> {
     type Error<'a, 'b>
         = T
     where
@@ -64,7 +64,7 @@ impl<T> IODescription for QueueOfferIO<T> {
 
 pub(crate) struct QueuePollIO<T>(PhantomData<T>);
 
-impl<T> IODescription for QueuePollIO<T> {
+impl<T> Signature for QueuePollIO<T> {
     type Error<'a, 'b>
         = ()
     where
@@ -77,12 +77,12 @@ impl<T> IODescription for QueuePollIO<T> {
 }
 
 impl<'a, Q, S, B, C, T, const SUB_CAP: usize> MutAccessForkCollection
-    for LopeCoreArm<'a, Q, S, B, C, SUB_CAP>
+    for BanditHandle<'a, Q, S, B, C, SUB_CAP>
 where
-    Q: Collection<PollIO = QueuePollIO<T>, OfferIO = QueueOfferIO<T>>,
-    S: Schedule<Q>,
+    Q: Collection<PollSignature = QueuePollIO<T>, OfferSignature = QueueOfferIO<T>>,
+    S: Strategy<Q>,
     B: StorageBackend<Q>,
-    C: StorageBackend<<S::Arm as Hooked>::State>,
+    C: StorageBackend<<S::Gambler as Hooked>::Stake>,
 {
     type Item = T;
 
@@ -121,15 +121,15 @@ pub(crate) struct LockedDeque<T> {
 }
 
 impl<T> Collection for LockedDeque<T> {
-    type OfferIO = QueueOfferIO<T>;
-    type PollIO = QueuePollIO<T>;
+    type OfferSignature = QueueOfferIO<T>;
+    type PollSignature = QueuePollIO<T>;
 
     fn offer<'a, 'b>(
         &'b self,
-        item: <Self::OfferIO as IODescription>::Input<'a>,
+        item: <Self::OfferSignature as Signature>::Input<'a>,
     ) -> Result<
-        <Self::OfferIO as IODescription>::Output<'a, 'b>,
-        <Self::OfferIO as IODescription>::Error<'a, 'b>,
+        <Self::OfferSignature as Signature>::Output<'a, 'b>,
+        <Self::OfferSignature as Signature>::Error<'a, 'b>,
     > {
         let mut lock = self.raw.lock();
         if lock.len() >= self.cap {
@@ -141,10 +141,10 @@ impl<T> Collection for LockedDeque<T> {
 
     fn poll<'a, 'b>(
         &'b self,
-        input: <Self::PollIO as IODescription>::Input<'a>,
+        input: <Self::PollSignature as Signature>::Input<'a>,
     ) -> Result<
-        <Self::PollIO as IODescription>::Output<'a, 'b>,
-        <Self::PollIO as IODescription>::Error<'a, 'b>,
+        <Self::PollSignature as Signature>::Output<'a, 'b>,
+        <Self::PollSignature as Signature>::Error<'a, 'b>,
     > {
         self.raw.lock().pop_back().ok_or(())
     }
@@ -158,7 +158,7 @@ impl<T> Collection for LockedDeque<T> {
     }
 }
 
-impl<T, const N: usize> NewSized<N> for LockedDeque<T> {
+impl<T, const N: usize> WithCapacity<N> for LockedDeque<T> {
     fn with_capacity() -> Self {
         Self {
             raw: Mutex::new(VecDeque::with_capacity(N)),

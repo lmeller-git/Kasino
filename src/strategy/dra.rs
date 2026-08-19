@@ -3,8 +3,8 @@ use rand::{RngExt, SeedableRng, rngs::SmallRng};
 
 use crate::{
     Collection,
-    schedule::{EDCount, Hooked, InstrumentedState, Schedule},
     storage::StorageBackend,
+    strategy::{EDCount, Hooked, InstrumentedState, Strategy},
     sync::atomic::Ordering,
 };
 
@@ -18,13 +18,13 @@ pub struct DRAArm<R> {
     rng: R,
 }
 
-impl<Q: Collection, const CHOOSE: usize> Schedule<Q> for DRA<CHOOSE> {
-    type Arm = DRAArm<SmallRng>;
+impl<Q: Collection, const CHOOSE: usize> Strategy<Q> for DRA<CHOOSE> {
+    type Gambler = DRAArm<SmallRng>;
 
-    fn choose_offer_shard(
+    fn choose_offer_arm(
         &self,
-        state: &impl StorageBackend<<Self::Arm as Hooked>::State>,
-        arm: &mut Self::Arm,
+        state: &impl StorageBackend<<Self::Gambler as Hooked>::Stake>,
+        arm: &mut Self::Gambler,
     ) -> usize {
         (0..CHOOSE)
             .map(|_| arm.rng.random_range(..state.len()))
@@ -37,10 +37,10 @@ impl<Q: Collection, const CHOOSE: usize> Schedule<Q> for DRA<CHOOSE> {
             .unwrap()
     }
 
-    fn choose_poll_shard(
+    fn choose_poll_arm(
         &self,
-        state: &impl StorageBackend<<Self::Arm as Hooked>::State>,
-        arm: &mut Self::Arm,
+        state: &impl StorageBackend<<Self::Gambler as Hooked>::Stake>,
+        arm: &mut Self::Gambler,
     ) -> usize {
         (0..CHOOSE)
             .map(|_| arm.rng.random_range(..state.len()))
@@ -53,13 +53,13 @@ impl<Q: Collection, const CHOOSE: usize> Schedule<Q> for DRA<CHOOSE> {
             .unwrap()
     }
 
-    fn fork_arm(&self, arm: &mut Self::Arm) -> Self::Arm {
+    fn fork_gambler(&self, arm: &mut Self::Gambler) -> Self::Gambler {
         DRAArm {
             rng: arm.rng.fork(),
         }
     }
 
-    fn create_arm(&self) -> Self::Arm {
+    fn create_gambler(&self) -> Self::Gambler {
         DRAArm {
             rng: SmallRng::seed_from_u64(42),
         }
@@ -67,5 +67,5 @@ impl<Q: Collection, const CHOOSE: usize> Schedule<Q> for DRA<CHOOSE> {
 }
 
 impl Hooked for DRAArm<SmallRng> {
-    type State = CachePadded<InstrumentedState<EDCount>>;
+    type Stake = CachePadded<InstrumentedState<EDCount>>;
 }

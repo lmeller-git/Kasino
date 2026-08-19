@@ -8,12 +8,12 @@ use std::{
 
 use criterion::{BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
 use crossbeam_queue::ArrayQueue as RawArrayQueue;
-use lope::{
+use kasino::{
     Collection,
-    IODescription,
-    InlineLope,
-    NewSized,
-    schedule::{DCBO, DRA, RandomAccess, RoundRobin},
+    InlineBandit,
+    Signature,
+    WithCapacity,
+    strategy::{DCBO, DRA, RandomAccess, RoundRobin},
 };
 use rand::rngs::SmallRng;
 
@@ -30,7 +30,7 @@ impl Backoff {
 
 pub(crate) struct QueueOfferIO<T>(PhantomData<T>);
 
-impl<T> IODescription for QueueOfferIO<T> {
+impl<T> Signature for QueueOfferIO<T> {
     type Error<'a, 'b>
         = T
     where
@@ -44,7 +44,7 @@ impl<T> IODescription for QueueOfferIO<T> {
 
 pub(crate) struct QueuePollIO<T>(PhantomData<T>);
 
-impl<T> IODescription for QueuePollIO<T> {
+impl<T> Signature for QueuePollIO<T> {
     type Error<'a, 'b>
         = ()
     where
@@ -59,25 +59,25 @@ impl<T> IODescription for QueuePollIO<T> {
 struct QAdapter<T, const N: usize>(RawArrayQueue<T>);
 
 impl<T, const N: usize> Collection for QAdapter<T, N> {
-    type OfferIO = QueueOfferIO<T>;
-    type PollIO = QueuePollIO<T>;
+    type OfferSignature = QueueOfferIO<T>;
+    type PollSignature = QueuePollIO<T>;
 
     fn offer<'a, 'b>(
         &'b self,
-        item: <Self::OfferIO as IODescription>::Input<'a>,
+        item: <Self::OfferSignature as Signature>::Input<'a>,
     ) -> Result<
-        <Self::OfferIO as IODescription>::Output<'a, 'b>,
-        <Self::OfferIO as IODescription>::Error<'a, 'b>,
+        <Self::OfferSignature as Signature>::Output<'a, 'b>,
+        <Self::OfferSignature as Signature>::Error<'a, 'b>,
     > {
         self.0.push(item)
     }
 
     fn poll<'a, 'b>(
         &'b self,
-        _input: <Self::PollIO as IODescription>::Input<'a>,
+        _input: <Self::PollSignature as Signature>::Input<'a>,
     ) -> Result<
-        <Self::PollIO as IODescription>::Output<'a, 'b>,
-        <Self::PollIO as IODescription>::Error<'a, 'b>,
+        <Self::PollSignature as Signature>::Output<'a, 'b>,
+        <Self::PollSignature as Signature>::Error<'a, 'b>,
     > {
         self.0.pop().ok_or(())
     }
@@ -91,7 +91,7 @@ impl<T, const N: usize> Collection for QAdapter<T, N> {
     }
 }
 
-impl<T, const N: usize> NewSized<N> for QAdapter<T, N> {
+impl<T, const N: usize> WithCapacity<N> for QAdapter<T, N> {
     fn with_capacity() -> Self {
         Self(RawArrayQueue::new(N))
     }
@@ -136,9 +136,9 @@ macro_rules! bench_lope_single_threaded {
         $(
             $group.throughput(Throughput::Elements(1));
             $group.bench_function(BenchmarkId::new($name, $n), |b| {
-                let lope: InlineLope<QAdapter<u64, ST_SUB_CAP>, $Sched, $n, ST_SUB_CAP> =
-                    InlineLope::new();
-                let mut arm = lope.new_root();
+                let lope: InlineBandit<QAdapter<u64, ST_SUB_CAP>, $Sched, $n, ST_SUB_CAP> =
+                    InlineBandit::new();
+                let mut arm = lope.buy_in();
                 b.iter(|| {
                     _ = arm.offer(black_box(42u64));
                     black_box(arm.poll(()))
@@ -191,12 +191,12 @@ macro_rules! bench_lope_mpsc {
                 b.iter_custom(|iters| {
                     let mut total = Duration::ZERO;
                     for _ in 0..iters {
-                        let lope: InlineLope<QAdapter<u64, MT_SUB_CAP>, $Sched, SUB_QUEUE_COUNT, MT_SUB_CAP> =
-                            InlineLope::new();
+                        let lope: InlineBandit<QAdapter<u64, MT_SUB_CAP>, $Sched, SUB_QUEUE_COUNT, MT_SUB_CAP> =
+                            InlineBandit::new();
                         let start = Instant::now();
                         std::thread::scope(|scope| {
                             for _ in 0..$n {
-                                let mut arm = lope.new_root();
+                                let mut arm = lope.buy_in();
                                 scope.spawn(move || {
                                     for i in 0..MT_COUNT {
                                         let mut b = Backoff::new();
@@ -206,7 +206,7 @@ macro_rules! bench_lope_mpsc {
                                     }
                                 });
                             }
-                            let mut consumer = lope.new_root();
+                            let mut consumer = lope.buy_in();
                             for _ in 0..($n * MT_COUNT) {
                                 let mut b = Backoff::new();
                                 while consumer.poll(()).is_err() {
@@ -231,13 +231,13 @@ macro_rules! bench_lope_mpmc {
                 b.iter_custom(|iters| {
                     let mut total = Duration::ZERO;
                     for _ in 0..iters {
-                        let lope: InlineLope<QAdapter<u64, MT_SUB_CAP>, $Sched, SUB_QUEUE_COUNT, MT_SUB_CAP> =
-                            InlineLope::new();
+                        let lope: InlineBandit<QAdapter<u64, MT_SUB_CAP>, $Sched, SUB_QUEUE_COUNT, MT_SUB_CAP> =
+                            InlineBandit::new();
                         let pollped_total = AtomicUsize::new(0);
                         let start = Instant::now();
                         std::thread::scope(|scope| {
                             for _ in 0..$n {
-                                let mut arm = lope.new_root();
+                                let mut arm = lope.buy_in();
                                 scope.spawn(move || {
                                     for i in 0..MT_COUNT {
                                         let mut b = Backoff::new();
@@ -248,7 +248,7 @@ macro_rules! bench_lope_mpmc {
                                 });
                             }
                             for _ in 0..$n {
-                                let mut arm = lope.new_root();
+                                let mut arm = lope.buy_in();
                                 let pollped_total = &pollped_total;
                                 scope.spawn(move || {
                                     let mut pollped = 0usize;

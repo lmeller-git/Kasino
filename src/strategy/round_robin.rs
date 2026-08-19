@@ -1,7 +1,7 @@
 use crate::{
     Collection,
-    schedule::{Hooked, InstrumentedState, NoPad, Schedule},
     storage::StorageBackend,
+    strategy::{Hooked, InstrumentedState, NoPad, Strategy},
 };
 
 /// a round robin scheduler
@@ -22,34 +22,34 @@ impl RRArm {
     }
 }
 
-impl<Q: Collection> Schedule<Q> for RoundRobin {
-    type Arm = RRArm;
+impl<Q: Collection> Strategy<Q> for RoundRobin {
+    type Gambler = RRArm;
 
-    fn choose_offer_shard(
+    fn choose_offer_arm(
         &self,
-        state: &impl StorageBackend<<Self::Arm as Hooked>::State>,
-        arm: &mut Self::Arm,
+        state: &impl StorageBackend<<Self::Gambler as Hooked>::Stake>,
+        arm: &mut Self::Gambler,
     ) -> usize {
         arm.fetch_add() % state.len()
     }
 
-    fn choose_poll_shard(
+    fn choose_poll_arm(
         &self,
-        state: &impl StorageBackend<<Self::Arm as Hooked>::State>,
-        arm: &mut Self::Arm,
+        state: &impl StorageBackend<<Self::Gambler as Hooked>::Stake>,
+        arm: &mut Self::Gambler,
     ) -> usize {
         arm.fetch_add() % state.len()
     }
 
-    fn fork_arm(&self, arm: &mut Self::Arm) -> Self::Arm {
+    fn fork_gambler(&self, arm: &mut Self::Gambler) -> Self::Gambler {
         *arm
     }
 
-    fn create_arm(&self) -> Self::Arm {
+    fn create_gambler(&self) -> Self::Gambler {
         RRArm::default()
     }
 }
 
 impl Hooked for RRArm {
-    type State = NoPad<InstrumentedState<()>>;
+    type Stake = NoPad<InstrumentedState<()>>;
 }

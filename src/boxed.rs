@@ -3,10 +3,10 @@ use core::ops::{Index, IndexMut};
 
 use crate::{
     Collection,
-    NewSized,
-    construction::{DEFAULT_QUEUE_CAP, LopeCore, LopeCoreArm},
-    schedule::{Hooked, Schedule},
+    WithCapacity,
+    construction::{BanditCore, BanditHandle, DEFAULT_QUEUE_CAP},
     storage::StorageBackend,
+    strategy::{Hooked, Strategy},
 };
 
 /// a dynamicaly stored slice
@@ -66,26 +66,30 @@ impl<T> IndexMut<usize> for BoxedStorage<T> {
 
 /// a handle to the core subcollection container, which is stored dynamically
 #[allow(type_alias_bounds)]
-pub type BoxedArm<'a, Q: Collection, S: Schedule<Q>, const SUB_CAP: usize = DEFAULT_QUEUE_CAP> =
-    LopeCoreArm<'a, Q, S, BoxedStorage<Q>, BoxedStorage<<S::Arm as Hooked>::State>, SUB_CAP>;
+pub type BoxedBanditHandle<
+    'a,
+    Q: Collection,
+    S: Strategy<Q>,
+    const SUB_CAP: usize = DEFAULT_QUEUE_CAP,
+> = BanditHandle<'a, Q, S, BoxedStorage<Q>, BoxedStorage<<S::Gambler as Hooked>::Stake>, SUB_CAP>;
 
 /// a subcollection container, which is stored dynamically
-pub struct BoxedLope<Q: Collection, S: Schedule<Q>, const SUB_CAP: usize = DEFAULT_QUEUE_CAP> {
-    raw: LopeCore<Q, S, BoxedStorage<Q>, BoxedStorage<<S::Arm as Hooked>::State>, SUB_CAP>,
+pub struct BoxedLope<Q: Collection, S: Strategy<Q>, const SUB_CAP: usize = DEFAULT_QUEUE_CAP> {
+    raw: BanditCore<Q, S, BoxedStorage<Q>, BoxedStorage<<S::Gambler as Hooked>::Stake>, SUB_CAP>,
 }
 
 impl<Q, S, const SUB_CAP: usize> BoxedLope<Q, S, SUB_CAP>
 where
-    Q: NewSized<SUB_CAP>,
-    S: Schedule<Q> + Default,
+    Q: WithCapacity<SUB_CAP>,
+    S: Strategy<Q> + Default,
     Q: Collection,
 {
     /// constructs a new `BoxedLop`
     pub fn new(n_cores: usize) -> Self {
         Self {
-            raw: LopeCore::new_with(
+            raw: BanditCore::new_with(
                 BoxedStorage::from_fn_and_size(
-                    |_| <Q as NewSized<SUB_CAP>>::with_capacity(),
+                    |_| <Q as WithCapacity<SUB_CAP>>::with_capacity(),
                     n_cores,
                 ),
                 BoxedStorage::from_fn_and_size(|_| Default::default(), n_cores),
@@ -94,7 +98,7 @@ where
     }
 
     /// constructs a new handle to this container
-    pub fn new_root(&self) -> BoxedArm<'_, Q, S, SUB_CAP> {
-        self.raw.new_root()
+    pub fn buy_in(&self) -> BoxedBanditHandle<'_, Q, S, SUB_CAP> {
+        self.raw.buy_in()
     }
 }

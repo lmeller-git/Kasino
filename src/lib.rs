@@ -10,51 +10,62 @@
 //! ## Usage
 //!
 //! ```rust
-//! # use lope::{Collection, NewSized, IODescription};
+//! # use kasino::{Collection, WithCapacity, Signature};
 //! # use std::sync::Mutex;
 //! # use std::collections::VecDeque;
 //! # use std::marker::PhantomData;
-//! #
-//! # struct QueuePushIO<T>(PhantomData<T>);
-//! # impl<T> IODescription for QueuePushIO<T> {
+//! # struct QueuePushSignature<T>(PhantomData<T>);
+//! # impl<T> Signature for QueuePushSignature<T> {
 //! #     type Input<'a> = T;
-//! #     type Output<'a, 'b> = ();
-//! #     type Error<'a, 'b> = T;
+//! #     type Output<'io, 'arm> = () where Self: 'arm;
+//! #     type Error<'io, 'arm> = T where Self: 'arm;
 //! # }
-//! # struct QueuePollIO<T>(PhantomData<T>);
-//! # impl<T> IODescription for QueuePollIO<T> {
+//! # struct QueuePollSignature<T>(PhantomData<T>);
+//! # impl<T> Signature for QueuePollSignature<T> {
 //! #     type Input<'a> = ();
-//! #     type Output<'a, 'b> = T;
-//! #     type Error<'a, 'b> = ();
+//! #     type Output<'io, 'arm> = T where Self: 'arm;
+//! #     type Error<'io, 'arm> = () where Self: 'arm;
 //! # }
 //! #
 //! # struct MyQueue<T> { deque: Mutex<VecDeque<T>>, cap: usize }
 //! # impl<T> Collection for MyQueue<T> {
-//! #     type PollIO = QueuePollIO<T>;
-//! #     type OfferIO = QueuePushIO<T>;
-//! #     fn offer<'a, 'b>(&'b self, item: <Self::OfferIO as IODescription>::Input<'a>) -> Result<<Self::OfferIO as IODescription>::Output<'a, 'b>, <Self::OfferIO as IODescription>::Error<'a, 'b>> {
+//! #     type PollSignature = QueuePollSignature<T>;
+//! #     type OfferSignature = QueuePushSignature<T>;
+//! #     fn offer<'io, 'arm>(
+//! #         &'arm self,
+//! #         item: <Self::OfferSignature as Signature>::Input<'io>,
+//! #     ) -> Result<
+//! #         <Self::OfferSignature as Signature>::Output<'io, 'arm>,
+//! #         <Self::OfferSignature as Signature>::Error<'io, 'arm>,
+//! #     > {
 //! #         let mut g = self.deque.lock().unwrap();
 //! #         if g.len() >= self.cap { Err(item) } else { g.push_back(item); Ok(()) }
 //! #     }
-//! #     fn poll<'a, 'b>(&'b self, input: <Self::PollIO as IODescription>::Input<'a>) -> Result<<Self::PollIO as IODescription>::Output<'a, 'b>, <Self::PollIO as IODescription>::Error<'a, 'b>> { self.deque.lock().unwrap().pop_front().ok_or(()) }
+//! #     fn poll<'io, 'arm>(
+//! #         &'arm self,
+//! #         input: <Self::PollSignature as Signature>::Input<'io>,
+//! #     ) -> Result<
+//! #         <Self::PollSignature as Signature>::Output<'io, 'arm>,
+//! #         <Self::PollSignature as Signature>::Error<'io, 'arm>,
+//! #     > {
+//! #         self.deque.lock().unwrap().pop_front().ok_or(())
+//! #     }
 //! #     fn len(&self) -> usize { self.deque.lock().unwrap().len() }
 //! #     fn cap(&self) -> usize { self.cap }
 //! # }
-//! # impl<T, const N: usize> NewSized<N> for MyQueue<T> {
+//! # impl<T, const N: usize> WithCapacity<N> for MyQueue<T> {
 //! #     fn with_capacity() -> Self { Self { deque: Mutex::new(VecDeque::with_capacity(N)), cap: N } }
 //! # }
-//! use lope::{InlineLope, schedule::DCBO};
-//! // Create a Lope wrapping your datastructure
-//! let container = InlineLope::<MyQueue<i32>, DCBO, 8>::new();
-//! // Create a new owned handle to this container
-//! let mut my_handle = container.new_root();
-//! // fork this handle
-//! let mut my_handle2 = my_handle.fork();
+//! use kasino::{InlineBandit, strategy::DCBO};
 //!
-//! // It implements all operations of a Collection
-//! assert!(my_handle.offer(42).is_ok());
-//! assert!(my_handle2.offer(10).is_ok());
-//! assert!(my_handle.poll(()).is_ok());
+//! let bandit = InlineBandit::<MyQueue<i32>, DCBO, 8>::new();
+//!
+//! let mut handle = bandit.buy_in();
+//! let mut handle2 = handle.fork();
+//!
+//! assert!(handle.offer(42).is_ok());
+//! assert!(handle2.offer(10).is_ok());
+//! assert!(handle.poll(()).is_ok());
 //! ```
 //!
 //! ## Property preservation
@@ -126,8 +137,8 @@ extern crate alloc;
 mod boxed;
 mod construction;
 mod inline;
-pub mod schedule;
 pub mod storage;
+pub mod strategy;
 mod sync;
 
 #[cfg(test)]
@@ -135,21 +146,21 @@ mod tests;
 
 #[cfg(feature = "alloc")]
 pub use boxed::*;
-pub use construction::LopeCoreArm;
+pub use construction::BanditHandle;
 pub use inline::*;
 
 /// Description about the surface of a failable method
-pub trait IODescription {
+pub trait Signature {
     /// The input
     type Input<'a>;
     /// The successful output
-    type Output<'io, 'shard>
+    type Output<'io, 'arm>
     where
-        Self: 'shard;
+        Self: 'arm;
     /// the error
-    type Error<'io, 'shard>
+    type Error<'io, 'arm>
     where
-        Self: 'shard;
+        Self: 'arm;
 }
 
 /// A collection that supports `push` and `pop` operations.
@@ -157,28 +168,28 @@ pub trait IODescription {
 /// the specification ordering of this collection may influence the rank error and delay of the sharded version.
 pub trait Collection
 where
-    for<'a> <Self::PollIO as IODescription>::Input<'a>: Copy,
+    for<'a> <Self::PollSignature as Signature>::Input<'a>: Copy,
 {
     /// The item stored in this collection.
-    type OfferIO: IODescription;
+    type OfferSignature: Signature;
     /// the contract of poll
-    type PollIO: IODescription;
+    type PollSignature: Signature;
 
     /// pushes an item into the collection
-    fn offer<'io, 'shard>(
-        &'shard self,
-        item: <Self::OfferIO as IODescription>::Input<'io>,
+    fn offer<'io, 'arm>(
+        &'arm self,
+        item: <Self::OfferSignature as Signature>::Input<'io>,
     ) -> Result<
-        <Self::OfferIO as IODescription>::Output<'io, 'shard>,
-        <Self::OfferIO as IODescription>::Error<'io, 'shard>,
+        <Self::OfferSignature as Signature>::Output<'io, 'arm>,
+        <Self::OfferSignature as Signature>::Error<'io, 'arm>,
     >;
     /// pops an item from the collection
-    fn poll<'io, 'shard>(
-        &'shard self,
-        input: <Self::PollIO as IODescription>::Input<'io>,
+    fn poll<'io, 'arm>(
+        &'arm self,
+        input: <Self::PollSignature as Signature>::Input<'io>,
     ) -> Result<
-        <Self::PollIO as IODescription>::Output<'io, 'shard>,
-        <Self::PollIO as IODescription>::Error<'io, 'shard>,
+        <Self::PollSignature as Signature>::Output<'io, 'arm>,
+        <Self::PollSignature as Signature>::Error<'io, 'arm>,
     >;
     /// the length of the collection
     fn len(&self) -> usize;
@@ -192,7 +203,7 @@ where
 }
 
 /// A collection that may be created with a static initial capacity N
-pub trait NewSized<const N: usize> {
+pub trait WithCapacity<const N: usize> {
     /// Constructs a new Collection with capacity N
     fn with_capacity() -> Self;
 }
