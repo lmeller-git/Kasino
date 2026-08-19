@@ -152,6 +152,20 @@ mod sync;
 #[cfg(test)]
 mod tests;
 
+pub mod prelude {
+    //! Useful types that should suffice for standard usage.
+
+    #[cfg(feature = "alloc")]
+    pub use crate::{BoxedBandit, BoxedBanditHandle};
+    pub use crate::{
+        Collection,
+        Signature,
+        strategy::{DCBO, DRA, DoubleCollect, RandomAccess, RoundRobin},
+    };
+    #[cfg(not(feature = "alloc"))]
+    pub use crate::{InlineBandit, InlineBanditHandle};
+}
+
 #[cfg(feature = "alloc")]
 pub use boxed::*;
 pub use construction::BanditHandle;

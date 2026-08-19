@@ -8,19 +8,22 @@ use crate::{
 
 /// a random scheduler
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct RandomAccess<R> {
+pub struct RandomAccess<R = SmallRng> {
     rng: R,
 }
 
-impl Default for RandomAccess<SmallRng> {
+impl<S> Default for RandomAccess<S>
+where
+    S: SeedableRng,
+{
     fn default() -> Self {
         Self {
-            rng: SmallRng::seed_from_u64(42),
+            rng: S::seed_from_u64(Default::default()),
         }
     }
 }
 
-impl<Q: Collection> Strategy<Q> for RandomAccess<SmallRng> {
+impl<Q: Collection, S: RngExt + SeedableRng> Strategy<Q> for RandomAccess<S> {
     type Gambler = Self;
 
     fn choose_offer_arm(
@@ -47,11 +50,11 @@ impl<Q: Collection> Strategy<Q> for RandomAccess<SmallRng> {
 
     fn create_gambler(&self) -> Self::Gambler {
         Self {
-            rng: SmallRng::seed_from_u64(42),
+            rng: S::seed_from_u64(42),
         }
     }
 }
 
-impl Hooked for RandomAccess<SmallRng> {
+impl<S> Hooked for RandomAccess<S> {
     type Stake = NoPad<InstrumentedState<()>>;
 }
