@@ -35,7 +35,7 @@ impl<Q, S, B, C, const SUB_CAP: usize> BanditCore<Q, S, B, C, SUB_CAP>
 where
     B: StorageBackend<Q>,
 {
-    /// returns the number of subqueues
+    /// returns the number of sub collections
     pub(crate) fn arm_count(&self) -> usize {
         self.sub_collections.len()
     }
@@ -54,7 +54,9 @@ where
     }
 }
 
-/// An owned handle into the core collection. May be used for mutabel access of some fields
+/// An owned handle into the core bandit.
+///
+/// This handle provides access to the functionality of the collection.
 #[derive(PartialEq, Eq, PartialOrd, Ord, Debug, Hash)]
 pub struct BanditHandle<
     'a,
@@ -75,7 +77,7 @@ where
     B: StorageBackend<Q>,
     C: StorageBackend<<S::Gambler as Hooked>::Stake>,
 {
-    /// fork this handle into a new one
+    /// Fork this handle into a new one
     pub fn fork(&mut self) -> Self {
         Self {
             parent: self.parent,
@@ -83,7 +85,7 @@ where
         }
     }
 
-    /// push an item into one of the underlying subcollections
+    /// Make a call to [`Collection::offer`] to one of the sub collections as chosen by the strategy.
     pub fn offer<'b, 'c>(
         &'c mut self,
         item: <Q::OfferSignature as Signature>::Input<'b>,
@@ -107,7 +109,9 @@ where
         }
     }
 
-    /// pop and item from one of the underlying subcollections
+    /// Make a call to [`Collection::poll`] on one of the sub collections as chosen by the strategy.
+    ///
+    /// If the call fails, [`Strategy::collect`] may be called to ensure consistency across sub collections.
     pub fn poll<'b, 'c>(
         &'c mut self,
         input: <Q::PollSignature as Signature>::Input<'b>,
@@ -141,7 +145,7 @@ where
         }
     }
 
-    /// pops an item and returns the associated state
+    /// Makes a call to [`Self::poll`] and returns the stake associated with the sub collection we pulled.
     #[allow(clippy::type_complexity)]
     pub fn poll_with_info<'b, 'c>(
         &'c mut self,
@@ -182,22 +186,22 @@ where
         }
     }
 
-    /// state of the scheduler/queues
+    /// Returns an iterator over all stakes of all sub collections
     pub fn state(&self) -> impl Iterator<Item = &<S::Gambler as Hooked>::Stake> {
         self.parent.collection_state.iter()
     }
 
-    /// the total len of all active subcollections
+    /// the total len of all sub collections
     pub fn len(&self) -> usize {
         self.parent.sub_collections.iter().map(|q| q.len()).sum()
     }
 
-    /// the total capacity of all active subcollections
+    /// the total capacity of all sub collections
     pub fn cap(&self) -> usize {
         self.parent.sub_collections.iter().map(|q| q.cap()).sum()
     }
 
-    /// are all active subcollections empty?
+    /// are all sub collections empty?
     pub fn is_empty(&self) -> bool {
         self.len() == 0
     }
@@ -209,8 +213,8 @@ where
     S: Strategy<Q>,
     Q: Collection,
 {
-    /// returns the number of subqueues
-    pub fn nbr_subqueues(&self) -> usize {
+    /// returns the number of sub collections
+    pub fn arm_count(&self) -> usize {
         self.parent.arm_count()
     }
 }
@@ -223,7 +227,7 @@ where
     B: StorageBackend<Q>,
     C: StorageBackend<<S::Gambler as Hooked>::Stake>,
 {
-    /// polls and returns the index of the shard from which we polled
+    /// Makes a call to [`Self::poll`] and returns the index associated with the sub collection we pulled.
     #[allow(unused)]
     #[allow(clippy::type_complexity)]
     pub fn poll_with_idx<'b, 'c>(

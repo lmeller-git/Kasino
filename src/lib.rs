@@ -1,11 +1,13 @@
 //! A construction that elastically relaxes a given collection.
 //!
-//! `Lope` aims to improve performance of concurrent datastcurtures by sharding operations into multiple subqueues.
-//! This process introduces a relaxation of the wrapped datastruture, the specifics depending on the used scheduler.
+//! `Kasino` aims to improve performance of concurrent datastructures by sharding operations into multiple subqueues.
+//! This process introduces a relaxation of the wrapped datastruture, the specifics depending on the used strategy.
 //!
-//! Multiple schedulers, ameneable to different kinds of datastructures and requirements are provided.
+//! Strategies optimize for performance and relaxation bounds, but can be implemented to optimize for other properties.
 //!
-//! Additionally an interface for defining custom schedulers is available.
+//! Multiple strategies, ameneable to different kinds of datastructures and requirements are provided.
+//!
+//! Additionally an interface for defining custom strategies is available.
 //!
 //! ## Usage
 //!
@@ -72,13 +74,13 @@
 //!
 //! ### Progress Guarantees:
 //!
-//! - **Lock Freedom**: if the wrapped collection is lock-free, [`Lope`] is also lock-free.
-//! - **Obstruction Freedom**: if the wrapped collection exposes obstruction-free methods, all corresponding operations on [`Lope`] are also obstruction-free.
+//! - **Lock Freedom**: if the wrapped collection is lock-free, `Bandits` are also lock-free.
+//! - **Obstruction Freedom**: if the wrapped collection exposes obstruction-free methods, all corresponding operations on `Bandits` are also obstruction-free.
 //!
 //! ### Ordering and Consistency Guarantees:
 //!
-//! - **Relaxed FIFO**: if the wrapped collection has FIFO ordering, [`Lope`] has **k-FIFO** ordering.
-//! - **Linearizability**: if the wrapped collection is linearizable, all operations on [`Lope`] are also linearizable with respect to its relaxed FIFO specification.
+//! - **Relaxed Specification**: if the wrapped collection has some specficiation, `Bandits` relax that specification based on the chosen strategy.
+//! - **Linearizability**: if the wrapped collection is linearizable, all operations on `Bandits` are also linearizable with respect to their relaxed specification.
 //!
 //! ### Relaxation
 //!
@@ -89,12 +91,18 @@
 //!
 //! ## Perfomance
 //!
-//! TODO
+//! Sharding operations to multiple sub-collections incurs both memory cost, as well as additional overhead. Under low contention `Kasino` is slower than the raw collection.
+//!
+//! However, scheduling thread access across multiple sub-collections allows to reduce cache-line invalidation at high contention, improving performance as thread count increases.
 //!
 //! ## Limitations
 //!
-//! - Currently an instantiated Lope cannot be resized. Its capacity is fixed at construction time.
-//! - The capacity of each sub collection is fixed statically. The total capacity of Lope is constrained to a multiple of this.
+//! - Currently an instantiated `Bandit` cannot be resized. Its capacity is fixed at construction time.
+//! - The capacity of each sub collection is fixed statically. The total capacity of a `Bandit` is constrained to a multiple of this.
+//!
+//! ## Advanced Usage
+//!
+//! The interfaces for [`Collection`], [`strategy::Strategy`] and `Bandit` are general enough to support the implementation of a large set of datastructures. For examples of this consult `examples/`.
 //!
 //! ## Platform Support
 //!
@@ -163,19 +171,17 @@ pub trait Signature {
         Self: 'arm;
 }
 
-/// A collection that supports `push` and `pop` operations.
-///
-/// the specification ordering of this collection may influence the rank error and delay of the sharded version.
+/// The interface for a generic data structure.
 pub trait Collection
 where
     for<'a> <Self::PollSignature as Signature>::Input<'a>: Copy,
 {
-    /// The item stored in this collection.
+    /// The signature of the [`Self::offer`] method
     type OfferSignature: Signature;
-    /// the contract of poll
+    /// The signature of the [`Self::poll`] method
     type PollSignature: Signature;
 
-    /// pushes an item into the collection
+    /// Attempt to act on this collection.
     fn offer<'io, 'arm>(
         &'arm self,
         item: <Self::OfferSignature as Signature>::Input<'io>,
@@ -183,7 +189,11 @@ where
         <Self::OfferSignature as Signature>::Output<'io, 'arm>,
         <Self::OfferSignature as Signature>::Error<'io, 'arm>,
     >;
-    /// pops an item from the collection
+    /// Attempt to act on this collection in a constrained way.
+    ///
+    /// The input is `Copy`.
+    ///
+    /// `Self::poll` may be called multiple times per `Bandit::poll` invocation.
     fn poll<'io, 'arm>(
         &'arm self,
         input: <Self::PollSignature as Signature>::Input<'io>,
@@ -191,12 +201,12 @@ where
         <Self::PollSignature as Signature>::Output<'io, 'arm>,
         <Self::PollSignature as Signature>::Error<'io, 'arm>,
     >;
-    /// the length of the collection
+    /// The length of the collection
     fn len(&self) -> usize;
-    /// the capacity of the collection
+    /// The capacity of the collection
     fn cap(&self) -> usize;
 
-    /// is the collection empty?
+    /// Is the collection empty?
     fn is_empty(&self) -> bool {
         self.len() == 0
     }

@@ -1,4 +1,4 @@
-//! schedulers used in this crate
+//! Strategies used in this crate
 
 mod collect;
 mod dcbo;
@@ -22,30 +22,30 @@ use crate::{
     sync::atomic::{AtomicUsize, Ordering},
 };
 
-/// A schedule that determins which arm to pull next
+/// A stratehie that determines which arm is pulled next by a gambler
 pub trait Strategy<Q: Collection> {
-    /// An owned hook to the schedule
+    /// An owned gambler, keeping track of its history to make decisions based on this strategy.
     type Gambler: Hooked;
 
-    /// choose the next arm that we call push on
+    /// choose the next arm that we call [`Collection::offer`] on
     fn choose_offer_arm(
         &self,
         state: &impl StorageBackend<<Self::Gambler as Hooked>::Stake>,
         gambler: &mut Self::Gambler,
     ) -> usize;
-    /// choose the next arm that we call pop on
+    /// choose the next arm that we call [`Collection::poll`] on
     fn choose_poll_arm(
         &self,
         state: &impl StorageBackend<<Self::Gambler as Hooked>::Stake>,
         gambler: &mut Self::Gambler,
     ) -> usize;
 
-    /// forks an owned hook into a new one
+    /// forks a gambler into a new one
     fn fork_gambler(&self, arm: &mut Self::Gambler) -> Self::Gambler;
-    /// creates a new owned hook with default specs
+    /// creates a new owned gambler with default values
     fn create_gambler(&self) -> Self::Gambler;
 
-    /// Run a collect strategy on a queue to ensure we collect any remaingin item if one exists.
+    /// Ensure that we checked all sub collections in a consistent manner after [`Collection::poll`] failed on the arm we pulled.
     fn collect<'b, 'c>(
         &self,
         _state: &impl StorageBackend<<Self::Gambler as Hooked>::Stake>,
@@ -64,38 +64,38 @@ pub trait Strategy<Q: Collection> {
     }
 }
 
-/// a hook for a scheduler state
+/// a hook for the stake in some sub collection
 pub trait Hook {
-    /// mutate the state on a succesfull enqueue
+    /// mutate the state on a succesful [`Collection::offer`]
     fn on_offer_succ(&self) {}
-    /// mutate the state on a failed enqueue
+    /// mutate the state on a failed [`Collection::offer`]
     fn on_offer_fail(&self) {}
-    /// mutatet the state on a succesfull dequeue
+    /// mutate the state on a succesful [`Collection::poll`]
     fn on_poll_succ(&self) {}
-    /// mutate the state on a faield dequeue
+    /// mutate the state on a failed [`Collection::poll`]
     fn on_poll_fail(&self) {}
 }
 
-/// callbacks actuated by successful operations on Lope, which influence the schedulers next decision
+/// Callbacks that update the gamblers state and stakes based on the outcome of its decision.
 pub trait Hooked {
-    /// The type of state associated with this hook
+    /// The type of stake in a sub collection associated with this hook
     type Stake: Default + Hook;
-    /// mutate the state on a succesfull enqueue
+    /// Update the gambler on a succesful [`Collection::offer`]
     fn on_offer_succ(&mut self, sub_state: &Self::Stake) {
         sub_state.on_offer_succ();
     }
 
-    /// mutate the state on a failed enqueue
+    /// Update the gambler on a failed [`Collection::offer`]
     fn on_offer_fail(&mut self, sub_state: &Self::Stake) {
         sub_state.on_offer_fail();
     }
 
-    /// mutatet the state on a succesfull dequeue
+    /// Update the gambler on a succesful [`Collection::poll`]
     fn on_poll_succ(&mut self, sub_state: &Self::Stake) {
         sub_state.on_poll_succ();
     }
 
-    /// mutate the state on a failed dequeue
+    /// Update the gambler on a failed [`Collection::poll`]
     fn on_poll_fail(&mut self, sub_state: &Self::Stake) {
         sub_state.on_poll_fail();
     }

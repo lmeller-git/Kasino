@@ -12,12 +12,14 @@
 
 A construction that elastically relaxes a given collection.
 
-`Lope` aims to improve performance of concurrent datastcurtures by sharding operations into multiple subqueues.
-This process introduces a relaxation of the wrapped datastruture, the specifics depending on the used scheduler.
+`Kasino` aims to improve performance of concurrent datastructures by sharding operations into multiple subqueues.
+This process introduces a relaxation of the wrapped datastruture, the specifics depending on the used strategy.
 
-Multiple schedulers, ameneable to different kinds of datastructures and requirements are provided.
+Strategies optimize for performance and relaxation bounds, but can be implemented to optimize for other properties.
 
-Additionally an interface for defining custom schedulers is available.
+Multiple strategies, ameneable to different kinds of datastructures and requirements are provided.
+
+Additionally an interface for defining custom strategies is available.
 
 ### Usage
 
@@ -38,13 +40,13 @@ assert!(handle.poll(()).is_ok());
 
 #### Progress Guarantees:
 
-- **Lock Freedom**: if the wrapped collection is lock-free, [`Lope`] is also lock-free.
-- **Obstruction Freedom**: if the wrapped collection exposes obstruction-free methods, all corresponding operations on [`Lope`] are also obstruction-free.
+- **Lock Freedom**: if the wrapped collection is lock-free, `Bandits` are also lock-free.
+- **Obstruction Freedom**: if the wrapped collection exposes obstruction-free methods, all corresponding operations on `Bandits` are also obstruction-free.
 
 #### Ordering and Consistency Guarantees:
 
-- **Relaxed FIFO**: if the wrapped collection has FIFO ordering, [`Lope`] has **k-FIFO** ordering.
-- **Linearizability**: if the wrapped collection is linearizable, all operations on [`Lope`] are also linearizable with respect to its relaxed FIFO specification.
+- **Relaxed Specification**: if the wrapped collection has some specficiation, `Bandits` relax that specification based on the chosen strategy.
+- **Linearizability**: if the wrapped collection is linearizable, all operations on `Bandits` are also linearizable with respect to their relaxed specification.
 
 #### Relaxation
 
@@ -55,12 +57,18 @@ For more information refer to the schedulers documenation and the reference pape
 
 ### Perfomance
 
-TODO
+Sharding operations to multiple sub-collections incurs both memory cost, as well as additional overhead. Under low contention `Kasino` is slower than the raw collection.
+
+However, scheduling thread access across multiple sub-collections allows to reduce cache-line invalidation at high contention, improving performance as thread count increases.
 
 ### Limitations
 
-- Currently an instantiated Lope cannot be resized. Its capacity is fixed at construction time.
-- The capacity of each sub collection is fixed statically. The total capacity of Lope is constrained to a multiple of this.
+- Currently an instantiated `Bandit` cannot be resized. Its capacity is fixed at construction time.
+- The capacity of each sub collection is fixed statically. The total capacity of a `Bandit` is constrained to a multiple of this.
+
+### Advanced Usage
+
+The interfaces for [`Collection`](https://docs.rs/kasino/latest/kasino/trait.Collection.html), [`strategy::Strategy`](https://docs.rs/kasino/latest/kasino/strategy/trait.Strategy.html) and `Bandit` are general enough to support the implementation of a large set of datastructures. For examples of this consult `examples/`.
 
 ### Platform Support
 
