@@ -29,22 +29,22 @@ impl<Q: Collection, S: RngExt + SeedableRng> Strategy<Q> for RandomAccess<S> {
     fn choose_offer_arm(
         &self,
         state: &impl StorageBackend<<Self::Gambler as Hooked>::Stake>,
-        arm: &mut Self::Gambler,
+        gambler: &mut Self::Gambler,
     ) -> usize {
-        arm.rng.random_range(..state.len())
+        gambler.rng.random_range(..state.len())
     }
 
     fn choose_poll_arm(
         &self,
         state: &impl StorageBackend<<Self::Gambler as Hooked>::Stake>,
-        arm: &mut Self::Gambler,
+        gambler: &mut Self::Gambler,
     ) -> usize {
-        arm.rng.random_range(..state.len())
+        gambler.rng.random_range(..state.len())
     }
 
-    fn fork_gambler(&self, arm: &mut Self::Gambler) -> Self::Gambler {
+    fn fork_gambler(&self, gambler: &mut Self::Gambler) -> Self::Gambler {
         Self {
-            rng: arm.rng.fork(),
+            rng: gambler.rng.fork(),
         }
     }
 

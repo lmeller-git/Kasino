@@ -23,21 +23,21 @@ impl<Q: Collection, S: Strategy<Q>> Strategy<Q> for NoCollect<S> {
     fn choose_offer_arm(
         &self,
         state: &impl StorageBackend<<Self::Gambler as Hooked>::Stake>,
-        arm: &mut Self::Gambler,
+        gambler: &mut Self::Gambler,
     ) -> usize {
-        self.0.choose_offer_arm(state, arm)
+        self.0.choose_offer_arm(state, gambler)
     }
 
     fn choose_poll_arm(
         &self,
         choose_to: &impl StorageBackend<<Self::Gambler as Hooked>::Stake>,
-        arm: &mut Self::Gambler,
+        gambler: &mut Self::Gambler,
     ) -> usize {
-        self.0.choose_poll_arm(choose_to, arm)
+        self.0.choose_poll_arm(choose_to, gambler)
     }
 
-    fn fork_gambler(&self, arm: &mut Self::Gambler) -> Self::Gambler {
-        self.0.fork_gambler(arm)
+    fn fork_gambler(&self, gambler: &mut Self::Gambler) -> Self::Gambler {
+        self.0.fork_gambler(gambler)
     }
 
     fn create_gambler(&self) -> Self::Gambler {
@@ -74,14 +74,14 @@ where
 
 #[allow(unreachable_pub)]
 pub struct StorageView<'a, B, T, K> {
-    b: &'a B,
+    backend: &'a B,
     _phantom: PhantomData<(&'a T, &'a K)>,
 }
 
 impl<'a, B, T, K> StorageView<'a, B, T, K> {
-    fn new(b: &'a B) -> Self {
+    fn new(backend: &'a B) -> Self {
         Self {
-            b,
+            backend,
             _phantom: PhantomData,
         }
     }
@@ -94,7 +94,7 @@ where
     type Output = T;
 
     fn index(&self, index: usize) -> &Self::Output {
-        self.b[index].project()
+        self.backend[index].project()
     }
 }
 
@@ -106,22 +106,22 @@ where
     type Rebind<U> = B::Rebind<U>;
 
     fn len(&self) -> usize {
-        self.b.len()
+        self.backend.len()
     }
 
     fn iter<'a>(&'a self) -> impl Iterator<Item = &'a T>
     where
         T: 'a,
     {
-        self.b.iter().map(|i| i.project())
+        self.backend.iter().map(|i| i.project())
     }
 
     fn is_empty(&self) -> bool {
-        self.b.is_empty()
+        self.backend.is_empty()
     }
 
     fn map_to_buffer<U>(&self, f: impl Fn(usize) -> U) -> Self::Rebind<U> {
-        self.b.map_to_buffer(f)
+        self.backend.map_to_buffer(f)
     }
 }
 
@@ -130,70 +130,70 @@ where
 pub struct DoubleCollect<S>(S);
 
 #[allow(unnameable_types)]
-pub struct DoubleCollectArm<A> {
-    a: A,
+pub struct DoubleCollectGambler<A> {
+    gambler: A,
 }
 
 #[allow(unnameable_types)]
 #[derive(Default, Debug)]
 pub struct DoubleCollectState<S> {
-    s: S,
-    e: AtomicUsize,
+    strategy: S,
+    epoch: AtomicUsize,
 }
 
 impl<'a, S> View<'a, S> for DoubleCollectState<S> {
     fn project(&'a self) -> &'a S {
-        &self.s
+        &self.strategy
     }
 }
 
-impl<A: Hooked> Hooked for DoubleCollectArm<A> {
+impl<A: Hooked> Hooked for DoubleCollectGambler<A> {
     type Stake = CachePadded<DoubleCollectState<A::Stake>>;
 }
 
 impl<T: Hook> Hook for DoubleCollectState<T> {
     fn on_offer_succ(&self) {
-        self.s.on_offer_succ();
+        self.strategy.on_offer_succ();
     }
 
     fn on_poll_succ(&self) {
-        self.s.on_poll_succ();
+        self.strategy.on_poll_succ();
     }
 }
 
 impl<S: Strategy<Q>, Q: Collection> Strategy<Q> for DoubleCollect<S> {
-    type Gambler = DoubleCollectArm<S::Gambler>;
+    type Gambler = DoubleCollectGambler<S::Gambler>;
 
     fn choose_offer_arm(
         &self,
         state: &impl StorageBackend<<Self::Gambler as Hooked>::Stake>,
-        arm: &mut Self::Gambler,
+        gambler: &mut Self::Gambler,
     ) -> usize {
         let idx = self
             .0
-            .choose_offer_arm(&StorageView::new(state), &mut arm.a);
-        state[idx].e.fetch_add(1, Ordering::Release);
+            .choose_offer_arm(&StorageView::new(state), &mut gambler.gambler);
+        state[idx].epoch.fetch_add(1, Ordering::Release);
         idx
     }
 
     fn choose_poll_arm(
         &self,
         choose_to: &impl StorageBackend<<Self::Gambler as Hooked>::Stake>,
-        arm: &mut Self::Gambler,
+        gambler: &mut Self::Gambler,
     ) -> usize {
         self.0
-            .choose_poll_arm(&StorageView::new(choose_to), &mut arm.a)
+            .choose_poll_arm(&StorageView::new(choose_to), &mut gambler.gambler)
     }
 
-    fn fork_gambler(&self, arm: &mut Self::Gambler) -> Self::Gambler {
-        DoubleCollectArm {
-            a: self.0.fork_gambler(&mut arm.a),
+    fn fork_gambler(&self, gambler: &mut Self::Gambler) -> Self::Gambler {
+        DoubleCollectGambler {
+            gambler: self.0.fork_gambler(&mut gambler.gambler),
         }
     }
 
     fn create_gambler(&self) -> Self::Gambler {
-        DoubleCollectArm {
-            a: self.0.create_gambler(),
+        DoubleCollectGambler {
+            gambler: self.0.create_gambler(),
         }
     }
 
@@ -210,7 +210,7 @@ impl<S: Strategy<Q>, Q: Collection> Strategy<Q> for DoubleCollect<S> {
 
         'collect: loop {
             for (i, item) in state.iter().enumerate() {
-                let epoch = item.e.load(Ordering::Acquire);
+                let epoch = item.epoch.load(Ordering::Acquire);
                 if let Ok(item) = sub_collections[i].poll(input) {
                     return Some((item, i));
                 }
@@ -218,7 +218,7 @@ impl<S: Strategy<Q>, Q: Collection> Strategy<Q> for DoubleCollect<S> {
             }
 
             for (stored_epoch, item) in versions.iter().zip(state.iter()) {
-                let epoch = item.e.load(Ordering::Acquire);
+                let epoch = item.epoch.load(Ordering::Acquire);
                 if stored_epoch.is_some_and(|e| e < epoch) {
                     continue 'collect;
                 }
