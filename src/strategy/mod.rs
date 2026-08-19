@@ -170,9 +170,17 @@ where
         self.sched_state.on_offer_succ();
     }
 
+    fn on_offer_fail(&self) {
+        self.sched_state.on_offer_fail();
+    }
+
     fn on_poll_succ(&self) {
         self.poll_count.fetch_add(1, Ordering::Relaxed);
         self.sched_state.on_poll_succ();
+    }
+
+    fn on_poll_fail(&self) {
+        self.sched_state.on_poll_fail();
     }
 }
 
@@ -212,8 +220,16 @@ where
         T::on_offer_succ(self);
     }
 
+    fn on_offer_fail(&self) {
+        T::on_offer_fail(self);
+    }
+
     fn on_poll_succ(&self) {
         T::on_poll_succ(self);
+    }
+
+    fn on_poll_fail(&self) {
+        T::on_poll_fail(self);
     }
 }
 
@@ -241,10 +257,18 @@ where
     T: Hook,
 {
     fn on_offer_succ(&self) {
-        self.0.on_offer_succ();
+        T::on_offer_succ(self);
+    }
+
+    fn on_offer_fail(&self) {
+        T::on_offer_fail(self);
     }
 
     fn on_poll_succ(&self) {
-        self.0.on_poll_succ();
+        T::on_offer_succ(self);
+    }
+
+    fn on_poll_fail(&self) {
+        T::on_poll_fail(self);
     }
 }
