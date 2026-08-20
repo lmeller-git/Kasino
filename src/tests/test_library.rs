@@ -1,6 +1,5 @@
 #![allow(unused)]
 
-use core::marker::PhantomData;
 use std::collections::{HashSet, VecDeque};
 
 use crate::{
@@ -8,6 +7,7 @@ use crate::{
     Collection,
     Signature,
     WithCapacity,
+    components::{PopSig, ValueSig},
     storage::StorageBackend,
     strategy::{Hooked, Strategy},
     sync::Mutex,
@@ -48,38 +48,10 @@ pub(crate) trait MutAccessForkCollection {
     }
 }
 
-pub(crate) struct QueueOfferIO<T>(PhantomData<T>);
-
-impl<T> Signature for QueueOfferIO<T> {
-    type Error<'a, 'b>
-        = T
-    where
-        Self: 'b;
-    type Input<'a> = T;
-    type Output<'a, 'b>
-        = ()
-    where
-        Self: 'b;
-}
-
-pub(crate) struct QueuePollIO<T>(PhantomData<T>);
-
-impl<T> Signature for QueuePollIO<T> {
-    type Error<'a, 'b>
-        = ()
-    where
-        Self: 'b;
-    type Input<'a> = ();
-    type Output<'a, 'b>
-        = T
-    where
-        Self: 'b;
-}
-
 impl<'a, Q, S, B, C, T, const SUB_CAP: usize> MutAccessForkCollection
     for BanditHandle<'a, Q, S, B, C, SUB_CAP>
 where
-    Q: Collection<PollSignature = QueuePollIO<T>, OfferSignature = QueueOfferIO<T>>,
+    Q: Collection<PollSignature = PopSig<T>, OfferSignature = ValueSig<T>>,
     S: Strategy<Q>,
     B: StorageBackend<Q>,
     C: StorageBackend<<S::Gambler as Hooked>::Stake>,
@@ -121,8 +93,8 @@ pub(crate) struct LockedDeque<T> {
 }
 
 impl<T> Collection for LockedDeque<T> {
-    type OfferSignature = QueueOfferIO<T>;
-    type PollSignature = QueuePollIO<T>;
+    type OfferSignature = ValueSig<T>;
+    type PollSignature = PopSig<T>;
 
     fn offer<'a, 'b>(
         &'b self,
@@ -141,7 +113,7 @@ impl<T> Collection for LockedDeque<T> {
 
     fn poll<'a, 'b>(
         &'b self,
-        input: <Self::PollSignature as Signature>::Input<'a>,
+        _input: <Self::PollSignature as Signature>::Input<'a>,
     ) -> Result<
         <Self::PollSignature as Signature>::Output<'a, 'b>,
         <Self::PollSignature as Signature>::Error<'a, 'b>,
@@ -153,7 +125,7 @@ impl<T> Collection for LockedDeque<T> {
         self.raw.lock().len()
     }
 
-    fn cap(&self) -> usize {
+    fn capacity(&self) -> usize {
         self.cap
     }
 }

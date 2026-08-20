@@ -3,6 +3,7 @@ use core::marker::PhantomData;
 use crate::{
     Collection,
     Signature,
+    components::PushPopCollection,
     storage::StorageBackend,
     strategy::{Hooked, Strategy},
 };
@@ -199,7 +200,11 @@ where
     /// the total capacity of all arms
     #[inline]
     pub fn cap(&self) -> usize {
-        self.parent.sub_collections.iter().map(|q| q.cap()).sum()
+        self.parent
+            .sub_collections
+            .iter()
+            .map(|q| q.capacity())
+            .sum()
     }
 
     /// are all arms empty?
@@ -219,5 +224,31 @@ where
     #[inline]
     pub fn arm_count(&self) -> usize {
         self.parent.arm_count()
+    }
+}
+
+impl<'a, Q, S, B, C, const SUB_CAP: usize> BanditHandle<'a, Q, S, B, C, SUB_CAP>
+where
+    Q: PushPopCollection,
+    S: Strategy<Q>,
+    B: StorageBackend<Q>,
+    C: StorageBackend<<S::Gambler as Hooked>::Stake>,
+{
+    /// Pushes an item to the collection.
+    ///
+    /// Returns the item on an erorr.
+    ///
+    /// This method is a convenience wrapper around [`Self::offer`].
+    #[inline]
+    pub fn push(&mut self, item: Q::Item) -> Result<(), Q::Item> {
+        self.offer(item)
+    }
+
+    /// Attempts to pop an item from the collection.
+    ///
+    /// This method is a convenience wrapper around [`Self::poll`].
+    #[inline]
+    pub fn pop(&mut self) -> Option<Q::Item> {
+        self.poll(()).ok()
     }
 }

@@ -86,7 +86,7 @@ impl<T, const N: usize> Collection for QAdapter<T, N> {
         self.0.len()
     }
 
-    fn cap(&self) -> usize {
+    fn capacity(&self) -> usize {
         self.0.capacity()
     }
 }

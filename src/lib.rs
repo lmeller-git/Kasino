@@ -19,36 +19,36 @@
 //! # struct QueuePushSignature<T>(PhantomData<T>);
 //! # impl<T> Signature for QueuePushSignature<T> {
 //! #     type Input<'a> = T;
-//! #     type Output<'io, 'arm> = () where Self: 'arm;
-//! #     type Error<'io, 'arm> = T where Self: 'arm;
+//! #     type Output<'input, 'arm> = () where Self: 'arm;
+//! #     type Error<'input, 'arm> = T where Self: 'arm;
 //! # }
 //! # struct QueuePollSignature<T>(PhantomData<T>);
 //! # impl<T> Signature for QueuePollSignature<T> {
 //! #     type Input<'a> = ();
-//! #     type Output<'io, 'arm> = T where Self: 'arm;
-//! #     type Error<'io, 'arm> = () where Self: 'arm;
+//! #     type Output<'input, 'arm> = T where Self: 'arm;
+//! #     type Error<'input, 'arm> = () where Self: 'arm;
 //! # }
 //! #
 //! # struct MyQueue<T> { deque: Mutex<VecDeque<T>>, cap: usize }
 //! # impl<T> Collection for MyQueue<T> {
 //! #     type PollSignature = QueuePollSignature<T>;
 //! #     type OfferSignature = QueuePushSignature<T>;
-//! #     fn offer<'io, 'arm>(
+//! #     fn offer<'input, 'arm>(
 //! #         &'arm self,
-//! #         item: <Self::OfferSignature as Signature>::Input<'io>,
+//! #         item: <Self::OfferSignature as Signature>::Input<'input>,
 //! #     ) -> Result<
-//! #         <Self::OfferSignature as Signature>::Output<'io, 'arm>,
-//! #         <Self::OfferSignature as Signature>::Error<'io, 'arm>,
+//! #         <Self::OfferSignature as Signature>::Output<'input, 'arm>,
+//! #         <Self::OfferSignature as Signature>::Error<'input, 'arm>,
 //! #     > {
 //! #         let mut g = self.deque.lock().unwrap();
 //! #         if g.len() >= self.cap { Err(item) } else { g.push_back(item); Ok(()) }
 //! #     }
-//! #     fn poll<'io, 'arm>(
+//! #     fn poll<'input, 'arm>(
 //! #         &'arm self,
-//! #         input: <Self::PollSignature as Signature>::Input<'io>,
+//! #         input: <Self::PollSignature as Signature>::Input<'input>,
 //! #     ) -> Result<
-//! #         <Self::PollSignature as Signature>::Output<'io, 'arm>,
-//! #         <Self::PollSignature as Signature>::Error<'io, 'arm>,
+//! #         <Self::PollSignature as Signature>::Output<'input, 'arm>,
+//! #         <Self::PollSignature as Signature>::Error<'input, 'arm>,
 //! #     > {
 //! #         self.deque.lock().unwrap().pop_front().ok_or(())
 //! #     }
@@ -143,6 +143,7 @@ extern crate alloc;
 
 #[cfg(feature = "alloc")]
 mod boxed;
+pub mod components;
 mod construction;
 mod inline;
 pub mod storage;
@@ -218,7 +219,10 @@ where
     /// The length of the collection
     fn len(&self) -> usize;
     /// The capacity of the collection
-    fn cap(&self) -> usize;
+    #[inline]
+    fn capacity(&self) -> usize {
+        usize::MAX
+    }
 
     /// Is the collection empty?
     #[inline]
