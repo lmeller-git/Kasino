@@ -53,7 +53,7 @@
 //! #         self.deque.lock().unwrap().pop_front().ok_or(())
 //! #     }
 //! #     fn len(&self) -> usize { self.deque.lock().unwrap().len() }
-//! #     fn cap(&self) -> usize { self.cap }
+//! #     fn capacity(&self) -> usize { self.cap }
 //! # }
 //! # impl<T, const N: usize> WithCapacity<N> for MyQueue<T> {
 //! #     fn with_capacity() -> Self { Self { deque: Mutex::new(VecDeque::with_capacity(N)), cap: N } }
