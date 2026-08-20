@@ -55,6 +55,8 @@ The exact bounds here are differing across different schedulers.
 
 For more information refer to the schedulers documentaion and the reference papers.
 
+For a quantitative analysis of the rank errors, refer to `https://github.com/lmeller-git/relaxed-queue-simulations`.
+
 ### Perfomance
 
 Sharding operations to multiple sub-collections incurs both memory cost, as well as additional overhead. Under low contention `Kasino` is slower than the raw collection.
