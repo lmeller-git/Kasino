@@ -221,6 +221,7 @@ where
     fn cap(&self) -> usize;
 
     /// Is the collection empty?
+    #[inline]
     fn is_empty(&self) -> bool {
         self.len() == 0
     }

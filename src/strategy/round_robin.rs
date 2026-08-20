@@ -25,6 +25,7 @@ impl RoundRobinGambler {
 impl<Q: Collection> Strategy<Q> for RoundRobin {
     type Gambler = RoundRobinGambler;
 
+    #[inline]
     fn choose_offer_arm(
         &self,
         state: &impl StorageBackend<<Self::Gambler as Hooked>::Stake>,
@@ -33,6 +34,7 @@ impl<Q: Collection> Strategy<Q> for RoundRobin {
         gambler.fetch_add() % state.len()
     }
 
+    #[inline]
     fn choose_poll_arm(
         &self,
         state: &impl StorageBackend<<Self::Gambler as Hooked>::Stake>,
@@ -41,10 +43,12 @@ impl<Q: Collection> Strategy<Q> for RoundRobin {
         gambler.fetch_add() % state.len()
     }
 
+    #[inline]
     fn fork_gambler(&self, gambler: &mut Self::Gambler) -> Self::Gambler {
         *gambler
     }
 
+    #[inline]
     fn create_gambler(&self) -> Self::Gambler {
         RoundRobinGambler::default()
     }

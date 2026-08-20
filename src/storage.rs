@@ -16,6 +16,7 @@ pub trait StorageBackend<T>: Index<usize, Output = T> {
     /// Builds a Self::Rebind filled with f(idx)
     fn map_to_buffer<U>(&self, f: impl Fn(usize) -> U) -> Self::Rebind<U>;
     /// is the storage empty?
+    #[inline]
     fn is_empty(&self) -> bool {
         self.len() == 0
     }

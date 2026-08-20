@@ -79,6 +79,7 @@ where
     C: StorageBackend<<S::Gambler as Hooked>::Stake>,
 {
     /// Fork this handle into a new one
+    #[inline]
     pub fn fork(&mut self) -> Self {
         Self {
             parent: self.parent,
@@ -87,6 +88,7 @@ where
     }
 
     /// Make a call to [`Collection::offer`] to an arms as chosen by this handles gambler.
+    #[inline]
     pub fn offer<'b, 'c>(
         &'c mut self,
         item: <Q::OfferSignature as Signature>::Input<'b>,
@@ -113,6 +115,7 @@ where
     /// Make a call to [`Collection::poll`] to an arm as chosen by htis handles gambler.
     ///
     /// If the call fails, [`Strategy::collect`] may be called to ensure consistency across all arms.
+    #[inline]
     pub fn poll<'b, 'c>(
         &'c mut self,
         input: <Q::PollSignature as Signature>::Input<'b>,
@@ -120,35 +123,12 @@ where
         <Q::PollSignature as Signature>::Output<'b, 'c>,
         <Q::PollSignature as Signature>::Error<'b, 'c>,
     > {
-        let i = self
-            .parent
-            .strategy
-            .choose_poll_arm(&self.parent.collection_state, &mut self.gambler);
-        match self.parent.sub_collections[i].poll(input) {
-            Ok(r) => {
-                self.gambler.on_poll_succ(&self.parent.collection_state[i]);
-                Ok(r)
-            }
-            Err(e) => {
-                self.gambler.on_poll_fail(&self.parent.collection_state[i]);
-                let r = self.parent.strategy.collect(
-                    &self.parent.collection_state,
-                    &self.parent.sub_collections,
-                    input,
-                );
-                if let Some((r, state)) = r {
-                    self.gambler
-                        .on_poll_succ(&self.parent.collection_state[state]);
-                    Ok(r)
-                } else {
-                    Err(e)
-                }
-            }
-        }
+        Self::poll_internal(self.parent, &mut self.gambler, input).0
     }
 
     /// Makes a call to [`Self::poll`] and returns the stake associated with the arm we pulled.
     #[expect(clippy::type_complexity)]
+    #[inline]
     pub fn poll_with_info<'b, 'c>(
         &'c mut self,
         input: <Q::PollSignature as Signature>::Input<'b>,
@@ -162,49 +142,68 @@ where
     where
         <S::Gambler as Hooked>::Stake: Clone,
     {
-        let i = self
-            .parent
+        let (res, idx) = Self::poll_internal(self.parent, &mut self.gambler, input);
+        (res, self.parent.collection_state[idx].clone())
+    }
+
+    /// Makes a call to [`Self::poll`] and returns the index associated with the arm we pulled.
+    #[expect(clippy::type_complexity)]
+    pub(crate) fn poll_internal<'b, 'c>(
+        parent: &'c BanditCore<Q, S, B, C, SUB_CAP>,
+        gambler: &mut S::Gambler,
+        input: <Q::PollSignature as Signature>::Input<'b>,
+    ) -> (
+        Result<
+            <Q::PollSignature as Signature>::Output<'b, 'c>,
+            <Q::PollSignature as Signature>::Error<'b, 'c>,
+        >,
+        usize,
+    ) {
+        let i = parent
             .strategy
-            .choose_poll_arm(&self.parent.collection_state, &mut self.gambler);
-        match self.parent.sub_collections[i].poll(input) {
+            .choose_poll_arm(&parent.collection_state, gambler);
+        match parent.sub_collections[i].poll(input) {
             Ok(r) => {
-                self.gambler.on_poll_succ(&self.parent.collection_state[i]);
-                (Ok(r), self.parent.collection_state[i].clone())
+                gambler.on_poll_succ(&parent.collection_state[i]);
+                (Ok(r), i)
             }
             Err(e) => {
-                self.gambler.on_poll_fail(&self.parent.collection_state[i]);
-                let r = self.parent.strategy.collect(
-                    &self.parent.collection_state,
-                    &self.parent.sub_collections,
+                gambler.on_poll_fail(&parent.collection_state[i]);
+                let r = parent.strategy.collect(
+                    &parent.collection_state,
+                    &parent.sub_collections,
                     input,
                 );
                 if let Some((r, state)) = r {
-                    self.gambler
-                        .on_poll_succ(&self.parent.collection_state[state]);
-                    (Ok(r), self.parent.collection_state[state].clone())
+                    gambler.on_poll_succ(&parent.collection_state[state]);
+                    (Ok(r), state)
                 } else {
-                    (Err(e), self.parent.collection_state[i].clone())
+                    (Err(e), i)
                 }
             }
         }
     }
 
     /// Returns an iterator over all stakes in all arms
+    #[inline]
     pub fn state(&self) -> impl Iterator<Item = &<S::Gambler as Hooked>::Stake> {
         self.parent.collection_state.iter()
     }
 
     /// the total len of all arms
+    #[inline]
     pub fn len(&self) -> usize {
         self.parent.sub_collections.iter().map(|q| q.len()).sum()
     }
 
     /// the total capacity of all arms
+    #[inline]
     pub fn cap(&self) -> usize {
         self.parent.sub_collections.iter().map(|q| q.cap()).sum()
     }
 
     /// are all arms empty?
+    #[inline]
     pub fn is_empty(&self) -> bool {
         self.len() == 0
     }
@@ -217,52 +216,8 @@ where
     Q: Collection,
 {
     /// returns the number of arms
+    #[inline]
     pub fn arm_count(&self) -> usize {
         self.parent.arm_count()
-    }
-}
-
-#[cfg(test)]
-impl<'a, Q, S, B, C, const SUB_CAP: usize> BanditHandle<'a, Q, S, B, C, SUB_CAP>
-where
-    Q: Collection,
-    S: Strategy<Q>,
-    B: StorageBackend<Q>,
-    C: StorageBackend<<S::Gambler as Hooked>::Stake>,
-{
-    /// Makes a call to [`Self::poll`] and returns the index associated with the arm we pulled.
-    #[expect(clippy::type_complexity)]
-    pub fn poll_with_idx<'b, 'c>(
-        &'c mut self,
-        input: <Q::PollSignature as Signature>::Input<'b>,
-    ) -> Result<
-        (<Q::PollSignature as Signature>::Output<'b, 'c>, usize),
-        <Q::PollSignature as Signature>::Error<'b, 'c>,
-    > {
-        let i = self
-            .parent
-            .strategy
-            .choose_poll_arm(&self.parent.collection_state, &mut self.gambler);
-        match self.parent.sub_collections[i].poll(input) {
-            Ok(r) => {
-                self.gambler.on_poll_succ(&self.parent.collection_state[i]);
-                Ok((r, i))
-            }
-            Err(e) => {
-                self.gambler.on_poll_fail(&self.parent.collection_state[i]);
-                let r = self.parent.strategy.collect(
-                    &self.parent.collection_state,
-                    &self.parent.sub_collections,
-                    input,
-                );
-                if let Some((r, state)) = r {
-                    self.gambler
-                        .on_poll_succ(&self.parent.collection_state[state]);
-                    Ok((r, state))
-                } else {
-                    Err(e)
-                }
-            }
-        }
     }
 }

@@ -50,6 +50,7 @@ pub trait Strategy<Q: Collection> {
     fn create_gambler(&self) -> Self::Gambler;
 
     /// Ensure that we checked all arms in a consistent manner after [`Collection::poll`] failed on the arm we pulled.
+    #[inline]
     fn collect<'b, 'c>(
         &self,
         _state: &impl StorageBackend<<Self::Gambler as Hooked>::Stake>,
@@ -71,12 +72,16 @@ pub trait Strategy<Q: Collection> {
 /// a hook for the stake in the bandits arms
 pub trait Hook {
     /// mutate the state on a successful [`Collection::offer`]
+    #[inline]
     fn on_offer_succ(&self) {}
     /// mutate the state on a failed [`Collection::offer`]
+    #[inline]
     fn on_offer_fail(&self) {}
     /// mutate the state on a successful [`Collection::poll`]
+    #[inline]
     fn on_poll_succ(&self) {}
     /// mutate the state on a failed [`Collection::poll`]
+    #[inline]
     fn on_poll_fail(&self) {}
 }
 
@@ -85,21 +90,25 @@ pub trait Hooked {
     /// The type of stake in an arm associated with this hook
     type Stake: Default + Hook;
     /// Update the gambler on a successful [`Collection::offer`]
+    #[inline]
     fn on_offer_succ(&mut self, sub_state: &Self::Stake) {
         sub_state.on_offer_succ();
     }
 
     /// Update the gambler on a failed [`Collection::offer`]
+    #[inline]
     fn on_offer_fail(&mut self, sub_state: &Self::Stake) {
         sub_state.on_offer_fail();
     }
 
     /// Update the gambler on a successful [`Collection::poll`]
+    #[inline]
     fn on_poll_succ(&mut self, sub_state: &Self::Stake) {
         sub_state.on_poll_succ();
     }
 
     /// Update the gambler on a failed [`Collection::poll`]
+    #[inline]
     fn on_poll_fail(&mut self, sub_state: &Self::Stake) {
         sub_state.on_poll_fail();
     }
@@ -124,11 +133,13 @@ pub struct DbgState<T> {
 #[cfg(debug_assertions)]
 impl<T> DbgState<T> {
     /// The count of offers on a sub collection
+    #[inline]
     pub fn offer_count(&self) -> usize {
         self.offer_count.load(Ordering::Relaxed)
     }
 
     /// The count of polls on a sub collection
+    #[inline]
     pub fn poll_count(&self) -> usize {
         self.poll_count.load(Ordering::Relaxed)
     }
@@ -138,6 +149,7 @@ impl<T> DbgState<T> {
 impl<T> Deref for DbgState<T> {
     type Target = T;
 
+    #[inline]
     fn deref(&self) -> &Self::Target {
         &self.sched_state
     }
@@ -145,6 +157,7 @@ impl<T> Deref for DbgState<T> {
 
 #[cfg(debug_assertions)]
 impl<T> DerefMut for DbgState<T> {
+    #[inline]
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.sched_state
     }
@@ -155,6 +168,7 @@ impl<T> Clone for DbgState<T>
 where
     T: Clone,
 {
+    #[inline]
     fn clone(&self) -> Self {
         Self {
             offer_count: self.offer_count.load(Ordering::Relaxed).into(),
@@ -169,20 +183,24 @@ impl<T> Hook for DbgState<T>
 where
     T: Hook,
 {
+    #[inline]
     fn on_offer_succ(&self) {
         self.offer_count.fetch_add(1, Ordering::Relaxed);
         self.sched_state.on_offer_succ();
     }
 
+    #[inline]
     fn on_offer_fail(&self) {
         self.sched_state.on_offer_fail();
     }
 
+    #[inline]
     fn on_poll_succ(&self) {
         self.poll_count.fetch_add(1, Ordering::Relaxed);
         self.sched_state.on_poll_succ();
     }
 
+    #[inline]
     fn on_poll_fail(&self) {
         self.sched_state.on_poll_fail();
     }
@@ -196,6 +214,7 @@ pub struct EDCount {
 }
 
 impl Clone for EDCount {
+    #[inline]
     fn clone(&self) -> Self {
         Self {
             offer_count: self.offer_count.load(Ordering::Relaxed).into(),
@@ -206,21 +225,25 @@ impl Clone for EDCount {
 
 impl EDCount {
     /// The count of offers on a sub collection
+    #[inline]
     pub fn offer_count(&self) -> usize {
         self.offer_count.load(Ordering::Relaxed)
     }
 
     /// The count of polls on a sub collection
+    #[inline]
     pub fn poll_count(&self) -> usize {
         self.poll_count.load(Ordering::Relaxed)
     }
 }
 
 impl Hook for EDCount {
+    #[inline]
     fn on_offer_succ(&self) {
         self.offer_count.fetch_add(1, Ordering::Relaxed);
     }
 
+    #[inline]
     fn on_poll_succ(&self) {
         self.poll_count.fetch_add(1, Ordering::Relaxed);
     }
@@ -232,18 +255,22 @@ impl<T> Hook for CachePadded<T>
 where
     T: Hook,
 {
+    #[inline]
     fn on_offer_succ(&self) {
         T::on_offer_succ(self);
     }
 
+    #[inline]
     fn on_offer_fail(&self) {
         T::on_offer_fail(self);
     }
 
+    #[inline]
     fn on_poll_succ(&self) {
         T::on_poll_succ(self);
     }
 
+    #[inline]
     fn on_poll_fail(&self) {
         T::on_poll_fail(self);
     }
@@ -257,12 +284,14 @@ pub struct NoPad<T>(T);
 impl<T> Deref for NoPad<T> {
     type Target = T;
 
+    #[inline]
     fn deref(&self) -> &Self::Target {
         &self.0
     }
 }
 
 impl<T> DerefMut for NoPad<T> {
+    #[inline]
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
     }
@@ -272,18 +301,22 @@ impl<T> Hook for NoPad<T>
 where
     T: Hook,
 {
+    #[inline]
     fn on_offer_succ(&self) {
         T::on_offer_succ(self);
     }
 
+    #[inline]
     fn on_offer_fail(&self) {
         T::on_offer_fail(self);
     }
 
+    #[inline]
     fn on_poll_succ(&self) {
         T::on_poll_succ(self);
     }
 
+    #[inline]
     fn on_poll_fail(&self) {
         T::on_poll_fail(self);
     }

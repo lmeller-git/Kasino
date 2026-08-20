@@ -20,6 +20,7 @@ pub struct NoCollect<S>(S);
 impl<Q: Collection, S: Strategy<Q>> Strategy<Q> for NoCollect<S> {
     type Gambler = S::Gambler;
 
+    #[inline]
     fn choose_offer_arm(
         &self,
         state: &impl StorageBackend<<Self::Gambler as Hooked>::Stake>,
@@ -28,6 +29,7 @@ impl<Q: Collection, S: Strategy<Q>> Strategy<Q> for NoCollect<S> {
         self.0.choose_offer_arm(state, gambler)
     }
 
+    #[inline]
     fn choose_poll_arm(
         &self,
         choose_to: &impl StorageBackend<<Self::Gambler as Hooked>::Stake>,
@@ -36,14 +38,17 @@ impl<Q: Collection, S: Strategy<Q>> Strategy<Q> for NoCollect<S> {
         self.0.choose_poll_arm(choose_to, gambler)
     }
 
+    #[inline]
     fn fork_gambler(&self, gambler: &mut Self::Gambler) -> Self::Gambler {
         self.0.fork_gambler(gambler)
     }
 
+    #[inline]
     fn create_gambler(&self) -> Self::Gambler {
         self.0.create_gambler()
     }
 
+    #[inline]
     fn collect<'b, 'c>(
         &self,
         _state: &impl StorageBackend<<Self::Gambler as Hooked>::Stake>,
@@ -162,6 +167,7 @@ impl<T: Hook> Hook for DoubleCollectState<T> {
 impl<S: Strategy<Q>, Q: Collection> Strategy<Q> for DoubleCollect<S> {
     type Gambler = DoubleCollectGambler<S::Gambler>;
 
+    #[inline]
     fn choose_offer_arm(
         &self,
         state: &impl StorageBackend<<Self::Gambler as Hooked>::Stake>,
@@ -174,6 +180,7 @@ impl<S: Strategy<Q>, Q: Collection> Strategy<Q> for DoubleCollect<S> {
         idx
     }
 
+    #[inline]
     fn choose_poll_arm(
         &self,
         choose_to: &impl StorageBackend<<Self::Gambler as Hooked>::Stake>,
@@ -183,18 +190,21 @@ impl<S: Strategy<Q>, Q: Collection> Strategy<Q> for DoubleCollect<S> {
             .choose_poll_arm(&StorageView::new(choose_to), &mut gambler.gambler)
     }
 
+    #[inline]
     fn fork_gambler(&self, gambler: &mut Self::Gambler) -> Self::Gambler {
         DoubleCollectGambler {
             gambler: self.0.fork_gambler(&mut gambler.gambler),
         }
     }
 
+    #[inline]
     fn create_gambler(&self) -> Self::Gambler {
         DoubleCollectGambler {
             gambler: self.0.create_gambler(),
         }
     }
 
+    #[expect(clippy::missing_inline_in_public_items)]
     fn collect<'b, 'c>(
         &self,
         state: &impl StorageBackend<<Self::Gambler as Hooked>::Stake>,

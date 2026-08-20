@@ -16,6 +16,7 @@ pub struct BoxedStorage<T> {
 }
 
 impl<T: Default> Default for BoxedStorage<T> {
+    #[inline]
     fn default() -> Self {
         Self {
             arr: Default::default(),
@@ -24,6 +25,7 @@ impl<T: Default> Default for BoxedStorage<T> {
 }
 
 impl<T> BoxedStorage<T> {
+    #[inline]
     pub(crate) fn from_fn_and_size(f: impl Fn(usize) -> T, size: usize) -> Self {
         Self {
             arr: (0..size).map(f).collect(),
@@ -34,10 +36,12 @@ impl<T> BoxedStorage<T> {
 impl<T> StorageBackend<T> for BoxedStorage<T> {
     type Rebind<U> = BoxedStorage<U>;
 
+    #[inline]
     fn len(&self) -> usize {
         self.arr.len()
     }
 
+    #[inline]
     fn iter<'a>(&'a self) -> impl Iterator<Item = &'a T>
     where
         T: 'a,
@@ -45,6 +49,7 @@ impl<T> StorageBackend<T> for BoxedStorage<T> {
         self.arr.iter()
     }
 
+    #[inline]
     fn map_to_buffer<K>(&self, f: impl Fn(usize) -> K) -> Self::Rebind<K> {
         BoxedStorage::from_fn_and_size(f, self.arr.len())
     }
@@ -53,12 +58,14 @@ impl<T> StorageBackend<T> for BoxedStorage<T> {
 impl<T> Index<usize> for BoxedStorage<T> {
     type Output = T;
 
+    #[inline]
     fn index(&self, index: usize) -> &<BoxedStorage<T> as Index<usize>>::Output {
         &self.arr[index]
     }
 }
 
 impl<T> IndexMut<usize> for BoxedStorage<T> {
+    #[inline]
     fn index_mut(&mut self, index: usize) -> &mut <BoxedStorage<T> as Index<usize>>::Output {
         self.arr.get_mut(index).unwrap()
     }
@@ -86,6 +93,7 @@ where
 {
     /// constructs a new `BoxedLop`
     #[must_use]
+    #[inline]
     pub fn new(n_cores: usize) -> Self {
         Self {
             raw: BanditCore::new_with(
@@ -99,6 +107,7 @@ where
     }
 
     /// constructs a new handle to this container
+    #[inline]
     pub fn buy_in(&self) -> BoxedBanditHandle<'_, Q, S, SUB_CAP> {
         self.raw.buy_in()
     }

@@ -16,6 +16,7 @@ impl<S> Default for RandomAccess<S>
 where
     S: SeedableRng,
 {
+    #[inline]
     fn default() -> Self {
         Self {
             rng: S::seed_from_u64(Default::default()),
@@ -26,6 +27,7 @@ where
 impl<Q: Collection, S: RngExt + SeedableRng> Strategy<Q> for RandomAccess<S> {
     type Gambler = Self;
 
+    #[inline]
     fn choose_offer_arm(
         &self,
         state: &impl StorageBackend<<Self::Gambler as Hooked>::Stake>,
@@ -34,6 +36,7 @@ impl<Q: Collection, S: RngExt + SeedableRng> Strategy<Q> for RandomAccess<S> {
         gambler.rng.random_range(..state.len())
     }
 
+    #[inline]
     fn choose_poll_arm(
         &self,
         state: &impl StorageBackend<<Self::Gambler as Hooked>::Stake>,
@@ -42,12 +45,14 @@ impl<Q: Collection, S: RngExt + SeedableRng> Strategy<Q> for RandomAccess<S> {
         gambler.rng.random_range(..state.len())
     }
 
+    #[inline]
     fn fork_gambler(&self, gambler: &mut Self::Gambler) -> Self::Gambler {
         Self {
             rng: gambler.rng.fork(),
         }
     }
 
+    #[inline]
     fn create_gambler(&self) -> Self::Gambler {
         Self {
             rng: S::seed_from_u64(Default::default()),

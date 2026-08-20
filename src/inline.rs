@@ -15,6 +15,7 @@ pub struct InlineStorage<T, const N: usize> {
 }
 
 impl<T: Default, const N: usize> Default for InlineStorage<T, N> {
+    #[inline]
     fn default() -> Self {
         Self {
             arr: core::array::from_fn(|_| Default::default()),
@@ -25,10 +26,12 @@ impl<T: Default, const N: usize> Default for InlineStorage<T, N> {
 impl<T, const N: usize> StorageBackend<T> for InlineStorage<T, N> {
     type Rebind<U> = InlineStorage<U, N>;
 
+    #[inline]
     fn len(&self) -> usize {
         self.arr.len()
     }
 
+    #[inline]
     fn iter<'a>(&'a self) -> impl Iterator<Item = &'a T>
     where
         T: 'a,
@@ -36,6 +39,7 @@ impl<T, const N: usize> StorageBackend<T> for InlineStorage<T, N> {
         self.arr.iter()
     }
 
+    #[inline]
     fn map_to_buffer<U>(&self, f: impl Fn(usize) -> U) -> Self::Rebind<U> {
         InlineStorage {
             arr: core::array::from_fn(f),
@@ -44,6 +48,7 @@ impl<T, const N: usize> StorageBackend<T> for InlineStorage<T, N> {
 }
 
 impl<T, const N: usize> InlineStorage<T, N> {
+    #[inline]
     fn from_fn(f: impl Fn(usize) -> T) -> Self {
         InlineStorage {
             arr: core::array::from_fn(f),
@@ -54,12 +59,14 @@ impl<T, const N: usize> InlineStorage<T, N> {
 impl<T, const N: usize> Index<usize> for InlineStorage<T, N> {
     type Output = T;
 
+    #[inline]
     fn index(&self, index: usize) -> &<InlineStorage<T, N> as Index<usize>>::Output {
         &self.arr[index]
     }
 }
 
 impl<T, const N: usize> IndexMut<usize> for InlineStorage<T, N> {
+    #[inline]
     fn index_mut(&mut self, index: usize) -> &mut <InlineStorage<T, N> as Index<usize>>::Output {
         &mut self.arr[index]
     }
@@ -105,6 +112,7 @@ where
 {
     /// constructs a new `InlineBandit`
     #[must_use]
+    #[inline]
     pub fn new() -> Self {
         Self {
             raw: BanditCore::new_with(
@@ -115,6 +123,7 @@ where
     }
 
     /// constructs a new handle to this `InlineBandit`
+    #[inline]
     pub fn buy_in(&self) -> InlineBanditHandle<'_, Q, S, N, SUB_CAP> {
         self.raw.buy_in()
     }
@@ -126,6 +135,7 @@ where
     S: Strategy<Q> + Default,
     Q: Collection,
 {
+    #[inline]
     fn default() -> Self {
         Self::new()
     }
