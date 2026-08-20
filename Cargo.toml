@@ -12,8 +12,8 @@ readme.workspace = true
 description.workspace = true
 
 include = [
-    "src/**/*",
-    "benches/**/*",
+    "/src",
+    "/benches",
     "Cargo.toml",
     "/LICENSE*",
     "/README.md",
@@ -44,7 +44,7 @@ categories = ["data-structures", "algorithms", "concurrency", "no-std"]
 rust-version = "1.85.0"
 
 [features]
-default = ["std"]
+default = []
 std = ["alloc"]
 alloc = []
 atomic-fallback = ["portable-atomic/fallback"]
