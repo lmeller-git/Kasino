@@ -55,6 +55,27 @@ where
     }
 }
 
+impl<Q, S, B, C, const SUB_CAP: usize> BanditCore<Q, S, B, C, SUB_CAP>
+where
+    B: StorageBackend<Q>,
+{
+    pub(crate) fn into_arms(self) -> impl Iterator<Item = B::Item> {
+        self.sub_collections.into_iter()
+    }
+}
+
+impl<Q, S, B, C, const SUB_CAP: usize> BanditCore<Q, S, B, C, SUB_CAP>
+where
+    Q: IntoIterator,
+    B: IntoIterator<Item = Q>,
+{
+    pub(crate) fn into_items(self) -> impl Iterator<Item = Q::Item> {
+        self.sub_collections
+            .into_iter()
+            .flat_map(|collection| collection.into_iter())
+    }
+}
+
 /// An owned handle into the core bandit.
 ///
 /// This handle provides access to the functionality of the wrapped [`Collection`].

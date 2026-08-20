@@ -55,6 +55,16 @@ impl<T> StorageBackend<T> for BoxedStorage<T> {
     }
 }
 
+impl<T> IntoIterator for BoxedStorage<T> {
+    type IntoIter = alloc::vec::IntoIter<T>;
+    type Item = T;
+
+    #[inline]
+    fn into_iter(self) -> Self::IntoIter {
+        self.arr.into_iter()
+    }
+}
+
 impl<T> Index<usize> for BoxedStorage<T> {
     type Output = T;
 
@@ -110,5 +120,29 @@ where
     #[inline]
     pub fn buy_in(&self) -> BoxedBanditHandle<'_, Q, S, SUB_CAP> {
         self.raw.buy_in()
+    }
+}
+
+impl<Q, S, const SUB_CAP: usize> BoxedBandit<Q, S, SUB_CAP>
+where
+    Q: Collection,
+    S: Strategy<Q>,
+{
+    /// Consumes this collection and returns an iterator over its arms.
+    #[inline]
+    pub fn into_arms(self) -> impl Iterator<Item = <BoxedStorage<Q> as IntoIterator>::Item> {
+        self.raw.into_arms()
+    }
+}
+
+impl<Q, S, const SUB_CAP: usize> BoxedBandit<Q, S, SUB_CAP>
+where
+    Q: Collection + IntoIterator,
+    S: Strategy<Q>,
+{
+    /// Consumes this collection and returns an iterator over all contained items.
+    #[inline]
+    pub fn into_items(self) -> impl Iterator<Item = Q::Item> {
+        self.raw.into_items()
     }
 }

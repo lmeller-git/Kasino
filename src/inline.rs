@@ -47,6 +47,16 @@ impl<T, const N: usize> StorageBackend<T> for InlineStorage<T, N> {
     }
 }
 
+impl<T, const N: usize> IntoIterator for InlineStorage<T, N> {
+    type IntoIter = core::array::IntoIter<T, N>;
+    type Item = T;
+
+    #[inline]
+    fn into_iter(self) -> Self::IntoIter {
+        self.arr.into_iter()
+    }
+}
+
 impl<T, const N: usize> InlineStorage<T, N> {
     #[inline]
     fn from_fn(f: impl Fn(usize) -> T) -> Self {
@@ -138,5 +148,29 @@ where
     #[inline]
     fn default() -> Self {
         Self::new()
+    }
+}
+
+impl<Q, S, const N: usize, const SUB_CAP: usize> InlineBandit<Q, S, N, SUB_CAP>
+where
+    Q: Collection,
+    S: Strategy<Q>,
+{
+    /// Consumes this collection and returns an iterator over its arms.
+    #[inline]
+    pub fn into_arms(self) -> impl Iterator<Item = <InlineStorage<Q, N> as IntoIterator>::Item> {
+        self.raw.into_arms()
+    }
+}
+
+impl<Q, S, const N: usize, const SUB_CAP: usize> InlineBandit<Q, S, N, SUB_CAP>
+where
+    Q: Collection + IntoIterator,
+    S: Strategy<Q>,
+{
+    /// Consumes this collection and returns an iterator over all contained items.
+    #[inline]
+    pub fn into_items(self) -> impl Iterator<Item = Q::Item> {
+        self.raw.into_items()
     }
 }

@@ -3,7 +3,7 @@
 use core::ops::{Index, IndexMut};
 
 /// a generic storage
-pub trait StorageBackend<T>: Index<usize, Output = T> {
+pub trait StorageBackend<T>: Index<usize, Output = T> + IntoIterator {
     /// A generic storage backend, which this storagebackend knows how to construct
     type Rebind<U>: StorageBackend<U> + IndexMut<usize>;
 

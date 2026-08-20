@@ -128,6 +128,15 @@ where
     }
 }
 
+impl<'a, B, T, K> IntoIterator for StorageView<'a, B, T, K> {
+    type IntoIter = core::array::IntoIter<(), 0>;
+    type Item = ();
+
+    fn into_iter(self) -> Self::IntoIter {
+        [].into_iter()
+    }
+}
+
 /// Runs a double collect on a dequeu. This strategy promises empty-linearizability
 #[derive(Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy)]
 pub struct DoubleCollect<S>(S);
