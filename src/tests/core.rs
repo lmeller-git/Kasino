@@ -16,6 +16,72 @@ use crate::{
     },
 };
 
+#[cfg(feature = "alloc")]
+mod boxed {
+    use super::*;
+    use crate::BoxedBandit;
+
+    #[test]
+    fn smoke_impl() {
+        let q: BoxedBandit<LockedDeque<u32>, DCBO> = BoxedBandit::new(2);
+        smoke(q.buy_in());
+    }
+
+    #[test]
+    fn smoke_long_impl() {
+        let q: BoxedBandit<LockedDeque<u32>, DCBO> = BoxedBandit::new(2);
+        smoke_long(q.buy_in());
+    }
+
+    #[test]
+    fn force_push_impl() {
+        let q: BoxedBandit<LockedDeque<u32>, DCBO> = BoxedBandit::new(2);
+        force_push(q.buy_in());
+    }
+
+    #[test]
+    fn len_impl() {
+        let q: BoxedBandit<LockedDeque<u32>, DCBO> = BoxedBandit::new(2);
+        len(q.buy_in());
+    }
+
+    #[test]
+    fn len_empty_full_impl() {
+        let q: BoxedBandit<LockedDeque<()>, DCBO, 1> = BoxedBandit::new(2);
+        len_empty_full(q.buy_in());
+    }
+
+    #[test]
+    fn mpmc_impl() {
+        let q: BoxedBandit<LockedDeque<u32>, DCBO> = BoxedBandit::new(2);
+        mpmc(q.buy_in());
+    }
+
+    #[test]
+    fn mpmc_ring_buffer_impl() {
+        let q: BoxedBandit<LockedDeque<u32>, DCBO> = BoxedBandit::new(2);
+        mpmc_ring_buffer(q.buy_in());
+    }
+
+    #[test]
+    fn mpsc_impl() {
+        let q: BoxedBandit<LockedDeque<u32>, DCBO> = BoxedBandit::new(2);
+        mpsc(q.buy_in());
+    }
+
+    #[test]
+    fn spsc_impl() {
+        let q: BoxedBandit<LockedDeque<u32>, DCBO> = BoxedBandit::new(2);
+        spsc(q.buy_in());
+    }
+
+    #[test]
+    fn linearizable_impl() {
+        let q: BoxedBandit<LockedDeque<u32>, DoubleCollect<DCBO>> = BoxedBandit::new(2);
+        linearizable(q.buy_in());
+    }
+}
+
 mod dcbo {
     use super::*;
     #[test]
