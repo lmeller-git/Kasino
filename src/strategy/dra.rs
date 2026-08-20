@@ -6,27 +6,27 @@ use rand::{RngExt, SeedableRng, rngs::SmallRng};
 use crate::{
     Collection,
     storage::StorageBackend,
-    strategy::{EDCount, Hooked, InstrumentedState, Strategy},
+    strategy::{EDCount, Hooked, Strategy},
     sync::atomic::Ordering,
 };
 
 /// A DRA scheduler
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy)]
-pub struct DRA<R = SmallRng, const CHOOSE: usize = 2>(PhantomData<R>);
+pub struct DRA<const CHOOSE: usize = 2, R = SmallRng>(PhantomData<R>);
 
-impl<R, const CHOOSE: usize> Default for DRA<R, CHOOSE> {
+impl<R, const CHOOSE: usize> Default for DRA<CHOOSE, R> {
     fn default() -> Self {
         Self(PhantomData)
     }
 }
 
-#[allow(unnameable_types)]
+#[expect(unnameable_types)]
 #[derive(Default, PartialEq, Eq, PartialOrd, Ord, Debug, Clone, Copy, Hash)]
 pub struct DRAGambler<R = SmallRng> {
     rng: R,
 }
 
-impl<R: RngExt + SeedableRng, Q: Collection, const CHOOSE: usize> Strategy<Q> for DRA<R, CHOOSE> {
+impl<R: RngExt + SeedableRng, Q: Collection, const CHOOSE: usize> Strategy<Q> for DRA<CHOOSE, R> {
     type Gambler = DRAGambler<R>;
 
     fn choose_offer_arm(
@@ -40,7 +40,7 @@ impl<R: RngExt + SeedableRng, Q: Collection, const CHOOSE: usize> Strategy<Q> fo
                 state[i]
                     .offer_count
                     .load(Ordering::Relaxed)
-                    .saturating_sub(state[i].poll_count.load(Ordering::Relaxed))
+                    .saturating_sub(state[i].poll_count())
             })
             .unwrap()
     }
@@ -56,7 +56,7 @@ impl<R: RngExt + SeedableRng, Q: Collection, const CHOOSE: usize> Strategy<Q> fo
                 state[i]
                     .poll_count
                     .load(Ordering::Relaxed)
-                    .saturating_sub(state[i].offer_count.load(Ordering::Relaxed))
+                    .saturating_sub(state[i].offer_count())
             })
             .unwrap()
     }
@@ -75,5 +75,5 @@ impl<R: RngExt + SeedableRng, Q: Collection, const CHOOSE: usize> Strategy<Q> fo
 }
 
 impl<R> Hooked for DRAGambler<R> {
-    type Stake = CachePadded<InstrumentedState<EDCount>>;
+    type Stake = CachePadded<EDCount>;
 }

@@ -1,11 +1,11 @@
 //! A construction that elastically relaxes a given collection.
 //!
 //! `Kasino` aims to improve performance of concurrent datastructures by sharding operations into multiple subqueues.
-//! This process introduces a relaxation of the wrapped datastruture, the specifics depending on the used strategy.
+//! This process introduces a relaxation of the wrapped datastructure, the specifics depending on the used strategy.
 //!
 //! Strategies optimize for performance and relaxation bounds, but can be implemented to optimize for other properties.
 //!
-//! Multiple strategies, ameneable to different kinds of datastructures and requirements are provided.
+//! Multiple strategies, amenable to different kinds of datastructures and requirements are provided.
 //!
 //! Additionally an interface for defining custom strategies is available.
 //!
@@ -79,7 +79,7 @@
 //!
 //! ### Ordering and Consistency Guarantees:
 //!
-//! - **Relaxed Specification**: if the wrapped collection has some specficiation, `Bandits` relax that specification based on the chosen strategy.
+//! - **Relaxed Specification**: if the wrapped collection has some specification, `Bandits` relax that specification based on the chosen strategy.
 //! - **Linearizability**: if the wrapped collection is linearizable, all operations on `Bandits` are also linearizable with respect to their relaxed specification.
 //!
 //! ### Relaxation
@@ -87,7 +87,7 @@
 //! The rank error and delay are in general unbounded. However, the rank error and delay of some schedules is bounded with high probabilty.
 //! The exact bounds here are differing across different schedulers.
 //!
-//! For more information refer to the schedulers documenation and the reference papers.
+//! For more information refer to the schedulers documentaion and the reference papers.
 //!
 //! ## Perfomance
 //!
@@ -176,11 +176,11 @@ pub trait Signature {
     /// The input
     type Input<'a>;
     /// The successful output
-    type Output<'io, 'arm>
+    type Output<'input, 'arm>
     where
         Self: 'arm;
     /// the error
-    type Error<'io, 'arm>
+    type Error<'input, 'arm>
     where
         Self: 'arm;
 }
@@ -196,24 +196,24 @@ where
     type PollSignature: Signature;
 
     /// Attempt to act on this collection.
-    fn offer<'io, 'arm>(
+    fn offer<'input, 'arm>(
         &'arm self,
-        item: <Self::OfferSignature as Signature>::Input<'io>,
+        item: <Self::OfferSignature as Signature>::Input<'input>,
     ) -> Result<
-        <Self::OfferSignature as Signature>::Output<'io, 'arm>,
-        <Self::OfferSignature as Signature>::Error<'io, 'arm>,
+        <Self::OfferSignature as Signature>::Output<'input, 'arm>,
+        <Self::OfferSignature as Signature>::Error<'input, 'arm>,
     >;
     /// Attempt to act on this collection in a constrained way.
     ///
     /// The input is `Copy`.
     ///
     /// `Self::poll` may be called multiple times per `Bandit::poll` invocation.
-    fn poll<'io, 'arm>(
+    fn poll<'input, 'arm>(
         &'arm self,
-        input: <Self::PollSignature as Signature>::Input<'io>,
+        input: <Self::PollSignature as Signature>::Input<'input>,
     ) -> Result<
-        <Self::PollSignature as Signature>::Output<'io, 'arm>,
-        <Self::PollSignature as Signature>::Error<'io, 'arm>,
+        <Self::PollSignature as Signature>::Output<'input, 'arm>,
+        <Self::PollSignature as Signature>::Error<'input, 'arm>,
     >;
     /// The length of the collection
     fn len(&self) -> usize;

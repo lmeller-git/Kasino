@@ -56,7 +56,8 @@ where
 
 /// An owned handle into the core bandit.
 ///
-/// This handle provides access to the functionality of the collection.
+/// This handle provides access to the functionality of the wrapped [`Collection`].
+#[must_use]
 #[derive(PartialEq, Eq, PartialOrd, Ord, Debug, Hash)]
 pub struct BanditHandle<
     'a,
@@ -85,7 +86,7 @@ where
         }
     }
 
-    /// Make a call to [`Collection::offer`] to one of the sub collections as chosen by the strategy.
+    /// Make a call to [`Collection::offer`] to an arms as chosen by this handles gambler.
     pub fn offer<'b, 'c>(
         &'c mut self,
         item: <Q::OfferSignature as Signature>::Input<'b>,
@@ -109,9 +110,9 @@ where
         }
     }
 
-    /// Make a call to [`Collection::poll`] on one of the sub collections as chosen by the strategy.
+    /// Make a call to [`Collection::poll`] to an arm as chosen by htis handles gambler.
     ///
-    /// If the call fails, [`Strategy::collect`] may be called to ensure consistency across sub collections.
+    /// If the call fails, [`Strategy::collect`] may be called to ensure consistency across all arms.
     pub fn poll<'b, 'c>(
         &'c mut self,
         input: <Q::PollSignature as Signature>::Input<'b>,
@@ -146,8 +147,8 @@ where
         }
     }
 
-    /// Makes a call to [`Self::poll`] and returns the stake associated with the sub collection we pulled.
-    #[allow(clippy::type_complexity)]
+    /// Makes a call to [`Self::poll`] and returns the stake associated with the arm we pulled.
+    #[expect(clippy::type_complexity)]
     pub fn poll_with_info<'b, 'c>(
         &'c mut self,
         input: <Q::PollSignature as Signature>::Input<'b>,
@@ -188,22 +189,22 @@ where
         }
     }
 
-    /// Returns an iterator over all stakes of all sub collections
+    /// Returns an iterator over all stakes in all arms
     pub fn state(&self) -> impl Iterator<Item = &<S::Gambler as Hooked>::Stake> {
         self.parent.collection_state.iter()
     }
 
-    /// the total len of all sub collections
+    /// the total len of all arms
     pub fn len(&self) -> usize {
         self.parent.sub_collections.iter().map(|q| q.len()).sum()
     }
 
-    /// the total capacity of all sub collections
+    /// the total capacity of all arms
     pub fn cap(&self) -> usize {
         self.parent.sub_collections.iter().map(|q| q.cap()).sum()
     }
 
-    /// are all sub collections empty?
+    /// are all arms empty?
     pub fn is_empty(&self) -> bool {
         self.len() == 0
     }
@@ -215,7 +216,7 @@ where
     S: Strategy<Q>,
     Q: Collection,
 {
-    /// returns the number of sub collections
+    /// returns the number of arms
     pub fn arm_count(&self) -> usize {
         self.parent.arm_count()
     }
@@ -229,9 +230,8 @@ where
     B: StorageBackend<Q>,
     C: StorageBackend<<S::Gambler as Hooked>::Stake>,
 {
-    /// Makes a call to [`Self::poll`] and returns the index associated with the sub collection we pulled.
-    #[allow(unused)]
-    #[allow(clippy::type_complexity)]
+    /// Makes a call to [`Self::poll`] and returns the index associated with the arm we pulled.
+    #[expect(clippy::type_complexity)]
     pub fn poll_with_idx<'b, 'c>(
         &'c mut self,
         input: <Q::PollSignature as Signature>::Input<'b>,

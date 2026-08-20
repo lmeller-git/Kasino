@@ -66,7 +66,7 @@ impl<T, const N: usize> IndexMut<usize> for InlineStorage<T, N> {
 }
 
 /// A handle to an [`InlineBandit`].
-#[allow(type_alias_bounds)]
+#[expect(type_alias_bounds)]
 pub type InlineBanditHandle<
     'a,
     Q: Collection,
@@ -104,6 +104,7 @@ where
     S: Strategy<Q> + Default,
 {
     /// constructs a new `InlineBandit`
+    #[must_use]
     pub fn new() -> Self {
         Self {
             raw: BanditCore::new_with(

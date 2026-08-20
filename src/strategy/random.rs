@@ -50,7 +50,7 @@ impl<Q: Collection, S: RngExt + SeedableRng> Strategy<Q> for RandomAccess<S> {
 
     fn create_gambler(&self) -> Self::Gambler {
         Self {
-            rng: S::seed_from_u64(42),
+            rng: S::seed_from_u64(Default::default()),
         }
     }
 }

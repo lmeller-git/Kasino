@@ -4,7 +4,7 @@ use core::ops::{Index, IndexMut};
 
 /// a generic storage
 pub trait StorageBackend<T>: Index<usize, Output = T> {
-    /// A generic storagebackend, which this storagebackend knows how to construct
+    /// A generic storage backend, which this storagebackend knows how to construct
     type Rebind<U>: StorageBackend<U> + IndexMut<usize>;
 
     /// the current length of the storage
@@ -15,7 +15,7 @@ pub trait StorageBackend<T>: Index<usize, Output = T> {
         T: 'a;
     /// Builds a Self::Rebind filled with f(idx)
     fn map_to_buffer<U>(&self, f: impl Fn(usize) -> U) -> Self::Rebind<U>;
-    /// is the storgae empty?
+    /// is the storage empty?
     fn is_empty(&self) -> bool {
         self.len() == 0
     }

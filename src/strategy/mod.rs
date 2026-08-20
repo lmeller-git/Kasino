@@ -28,12 +28,14 @@ pub trait Strategy<Q: Collection> {
     type Gambler: Hooked;
 
     /// choose the next arm that we call [`Collection::offer`] on
+    #[must_use = "a pulled arm should be used and the result communicated back to the gambler via the `Hooked` trait"]
     fn choose_offer_arm(
         &self,
         state: &impl StorageBackend<<Self::Gambler as Hooked>::Stake>,
         gambler: &mut Self::Gambler,
     ) -> usize;
     /// choose the next arm that we call [`Collection::poll`] on
+    #[must_use = "a pulled arm should be used and the result communicated back to the gambler via the `Hooked` trait"]
     fn choose_poll_arm(
         &self,
         state: &impl StorageBackend<<Self::Gambler as Hooked>::Stake>,
@@ -41,11 +43,13 @@ pub trait Strategy<Q: Collection> {
     ) -> usize;
 
     /// forks a gambler into a new one
+    #[must_use]
     fn fork_gambler(&self, parent: &mut Self::Gambler) -> Self::Gambler;
     /// creates a new owned gambler with default values
+    #[must_use]
     fn create_gambler(&self) -> Self::Gambler;
 
-    /// Ensure that we checked all sub collections in a consistent manner after [`Collection::poll`] failed on the arm we pulled.
+    /// Ensure that we checked all arms in a consistent manner after [`Collection::poll`] failed on the arm we pulled.
     fn collect<'b, 'c>(
         &self,
         _state: &impl StorageBackend<<Self::Gambler as Hooked>::Stake>,
@@ -64,7 +68,7 @@ pub trait Strategy<Q: Collection> {
     }
 }
 
-/// a hook for the stake in some sub collection
+/// a hook for the stake in the bandits arms
 pub trait Hook {
     /// mutate the state on a successful [`Collection::offer`]
     fn on_offer_succ(&self) {}
@@ -78,7 +82,7 @@ pub trait Hook {
 
 /// Callbacks that update the gamblers state and stakes based on the outcome of its decision.
 pub trait Hooked {
-    /// The type of stake in a sub collection associated with this hook
+    /// The type of stake in an arm associated with this hook
     type Stake: Default + Hook;
     /// Update the gambler on a successful [`Collection::offer`]
     fn on_offer_succ(&mut self, sub_state: &Self::Stake) {
@@ -200,6 +204,18 @@ impl Clone for EDCount {
     }
 }
 
+impl EDCount {
+    /// The count of offers on a sub collection
+    pub fn offer_count(&self) -> usize {
+        self.offer_count.load(Ordering::Relaxed)
+    }
+
+    /// The count of polls on a sub collection
+    pub fn poll_count(&self) -> usize {
+        self.poll_count.load(Ordering::Relaxed)
+    }
+}
+
 impl Hook for EDCount {
     fn on_offer_succ(&self) {
         self.offer_count.fetch_add(1, Ordering::Relaxed);
@@ -265,7 +281,7 @@ where
     }
 
     fn on_poll_succ(&self) {
-        T::on_offer_succ(self);
+        T::on_poll_succ(self);
     }
 
     fn on_poll_fail(&self) {

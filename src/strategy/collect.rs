@@ -57,8 +57,7 @@ impl<Q: Collection, S: Strategy<Q>> Strategy<Q> for NoCollect<S> {
     }
 }
 
-#[allow(unreachable_pub)]
-pub trait View<'a, T> {
+pub(crate) trait View<'a, T> {
     fn project(&'a self) -> &'a T;
 }
 
@@ -72,8 +71,7 @@ where
     }
 }
 
-#[allow(unreachable_pub)]
-pub struct StorageView<'a, B, T, K> {
+pub(crate) struct StorageView<'a, B, T, K> {
     backend: &'a B,
     _phantom: PhantomData<(&'a T, &'a K)>,
 }
@@ -129,12 +127,12 @@ where
 #[derive(Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy)]
 pub struct DoubleCollect<S>(S);
 
-#[allow(unnameable_types)]
+#[expect(unnameable_types)]
 pub struct DoubleCollectGambler<A> {
     gambler: A,
 }
 
-#[allow(unnameable_types)]
+#[expect(unnameable_types)]
 #[derive(Default, Debug)]
 pub struct DoubleCollectState<S> {
     strategy: S,

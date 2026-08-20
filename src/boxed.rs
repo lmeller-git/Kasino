@@ -65,7 +65,7 @@ impl<T> IndexMut<usize> for BoxedStorage<T> {
 }
 
 /// a handle to the core subcollection container, which is stored dynamically
-#[allow(type_alias_bounds)]
+#[expect(type_alias_bounds)]
 pub type BoxedBanditHandle<
     'a,
     Q: Collection,
@@ -85,6 +85,7 @@ where
     Q: Collection,
 {
     /// constructs a new `BoxedLop`
+    #[must_use]
     pub fn new(n_cores: usize) -> Self {
         Self {
             raw: BanditCore::new_with(

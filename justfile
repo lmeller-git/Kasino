@@ -13,7 +13,7 @@ test-rs:
 
 lint-rs:
     cargo +nightly fmt --all -- --check
-    cargo clippy --all-targets -- -D warnings
+    cargo clippy --all-targets --all-features -- -D warnings
 
 check-rs:
     cargo +nightly docs-rs

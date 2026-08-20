@@ -6,27 +6,26 @@ use rand::{RngExt, SeedableRng, rngs::SmallRng};
 use crate::{
     Collection,
     storage::StorageBackend,
-    strategy::{EDCount, Hooked, InstrumentedState, Strategy},
-    sync::atomic::Ordering,
+    strategy::{EDCount, Hooked, Strategy},
 };
 
 /// A DCBO scheduler
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy)]
-pub struct DCBO<R = SmallRng, const CHOOSE: usize = 2>(PhantomData<R>);
+pub struct DCBO<const CHOOSE: usize = 2, R = SmallRng>(PhantomData<R>);
 
-impl<R, const CHOOSE: usize> Default for DCBO<R, CHOOSE> {
+impl<R, const CHOOSE: usize> Default for DCBO<CHOOSE, R> {
     fn default() -> Self {
         Self(PhantomData)
     }
 }
 
-#[allow(unnameable_types)]
+#[expect(unnameable_types)]
 #[derive(Default, PartialEq, Eq, PartialOrd, Ord, Debug, Clone, Copy, Hash)]
 pub struct DCBOGambler<R = SmallRng> {
     rng: R,
 }
 
-impl<R: RngExt + SeedableRng, Q: Collection, const CHOOSE: usize> Strategy<Q> for DCBO<R, CHOOSE> {
+impl<R: RngExt + SeedableRng, Q: Collection, const CHOOSE: usize> Strategy<Q> for DCBO<CHOOSE, R> {
     type Gambler = DCBOGambler<R>;
 
     fn choose_offer_arm(
@@ -36,7 +35,7 @@ impl<R: RngExt + SeedableRng, Q: Collection, const CHOOSE: usize> Strategy<Q> fo
     ) -> usize {
         (0..CHOOSE)
             .map(|_| gambler.rng.random_range(..state.len()))
-            .min_by_key(|&i| state[i].offer_count.load(Ordering::Relaxed))
+            .min_by_key(|&i| state[i].offer_count())
             .unwrap()
     }
 
@@ -47,7 +46,7 @@ impl<R: RngExt + SeedableRng, Q: Collection, const CHOOSE: usize> Strategy<Q> fo
     ) -> usize {
         (0..CHOOSE)
             .map(|_| gambler.rng.random_range(..state.len()))
-            .min_by_key(|&i| state[i].poll_count.load(Ordering::Relaxed))
+            .min_by_key(|&i| state[i].poll_count())
             .unwrap()
     }
 
@@ -65,5 +64,5 @@ impl<R: RngExt + SeedableRng, Q: Collection, const CHOOSE: usize> Strategy<Q> fo
 }
 
 impl<R> Hooked for DCBOGambler<R> {
-    type Stake = CachePadded<InstrumentedState<EDCount>>;
+    type Stake = CachePadded<EDCount>;
 }

@@ -131,14 +131,14 @@ fn retry_pop<T>(q: &RawArrayQueue<T>) -> T {
 const ST_SUB_CAP: usize = 64;
 const SUB_QUEUE_COUNT: usize = 32;
 
-macro_rules! bench_lope_single_threaded {
+macro_rules! bench_kasino_single_threaded {
     ($group:expr, $name:literal, $Sched:ty, [$($n:literal),+ $(,)?]) => {
         $(
             $group.throughput(Throughput::Elements(1));
             $group.bench_function(BenchmarkId::new($name, $n), |b| {
-                let lope: InlineBandit<QAdapter<u64, ST_SUB_CAP>, $Sched, $n, ST_SUB_CAP> =
+                let bandit: InlineBandit<QAdapter<u64, ST_SUB_CAP>, $Sched, $n, ST_SUB_CAP> =
                     InlineBandit::new();
-                let mut arm = lope.buy_in();
+                let mut arm = bandit.buy_in();
                 b.iter(|| {
                     _ = arm.offer(black_box(42u64));
                     black_box(arm.poll(()))
@@ -160,10 +160,10 @@ fn bench_single_threaded(c: &mut Criterion) {
         });
     });
 
-    bench_lope_single_threaded!(group, "random", RandomAccess<SmallRng>, [1, 2, 4]);
-    bench_lope_single_threaded!(group, "round_robin", RoundRobin, [1, 2, 4]);
-    bench_lope_single_threaded!(group, "dcbo", DCBO<2>, [1, 2, 4]);
-    bench_lope_single_threaded!(group, "dra", DRA<2>, [1, 2, 4]);
+    bench_kasino_single_threaded!(group, "random", RandomAccess<SmallRng>, [1, 2, 4]);
+    bench_kasino_single_threaded!(group, "round_robin", RoundRobin, [1, 2, 4]);
+    bench_kasino_single_threaded!(group, "dcbo", DCBO<2>, [1, 2, 4]);
+    bench_kasino_single_threaded!(group, "dra", DRA<2>, [1, 2, 4]);
 
     group.finish();
 }
@@ -183,7 +183,7 @@ fn bench_single_threaded(c: &mut Criterion) {
 const MT_SUB_CAP: usize = 128;
 const MT_COUNT: usize = 20_000;
 
-macro_rules! bench_lope_mpsc {
+macro_rules! bench_kasino_mpsc {
     ($group:expr, $name:literal, $Sched:ty, [$($n:literal),+ $(,)?]) => {
         $(
             $group.throughput(Throughput::Elements(($n * MT_COUNT) as u64));
@@ -191,12 +191,12 @@ macro_rules! bench_lope_mpsc {
                 b.iter_custom(|iters| {
                     let mut total = Duration::ZERO;
                     for _ in 0..iters {
-                        let lope: InlineBandit<QAdapter<u64, MT_SUB_CAP>, $Sched, SUB_QUEUE_COUNT, MT_SUB_CAP> =
+                        let bandit: InlineBandit<QAdapter<u64, MT_SUB_CAP>, $Sched, SUB_QUEUE_COUNT, MT_SUB_CAP> =
                             InlineBandit::new();
                         let start = Instant::now();
                         std::thread::scope(|scope| {
                             for _ in 0..$n {
-                                let mut arm = lope.buy_in();
+                                let mut arm = bandit.buy_in();
                                 scope.spawn(move || {
                                     for i in 0..MT_COUNT {
                                         let mut b = Backoff::new();
@@ -206,7 +206,7 @@ macro_rules! bench_lope_mpsc {
                                     }
                                 });
                             }
-                            let mut consumer = lope.buy_in();
+                            let mut consumer = bandit.buy_in();
                             for _ in 0..($n * MT_COUNT) {
                                 let mut b = Backoff::new();
                                 while consumer.poll(()).is_err() {
@@ -223,7 +223,7 @@ macro_rules! bench_lope_mpsc {
     };
 }
 
-macro_rules! bench_lope_mpmc {
+macro_rules! bench_kasino_mpmc {
     ($group:expr, $name:literal, $Sched:ty, [$($n:literal),+ $(,)?]) => {
         $(
             $group.throughput(Throughput::Elements(($n * MT_COUNT) as u64));
@@ -231,13 +231,13 @@ macro_rules! bench_lope_mpmc {
                 b.iter_custom(|iters| {
                     let mut total = Duration::ZERO;
                     for _ in 0..iters {
-                        let lope: InlineBandit<QAdapter<u64, MT_SUB_CAP>, $Sched, SUB_QUEUE_COUNT, MT_SUB_CAP> =
+                        let bandit: InlineBandit<QAdapter<u64, MT_SUB_CAP>, $Sched, SUB_QUEUE_COUNT, MT_SUB_CAP> =
                             InlineBandit::new();
                         let pollped_total = AtomicUsize::new(0);
                         let start = Instant::now();
                         std::thread::scope(|scope| {
                             for _ in 0..$n {
-                                let mut arm = lope.buy_in();
+                                let mut arm = bandit.buy_in();
                                 scope.spawn(move || {
                                     for i in 0..MT_COUNT {
                                         let mut b = Backoff::new();
@@ -248,7 +248,7 @@ macro_rules! bench_lope_mpmc {
                                 });
                             }
                             for _ in 0..$n {
-                                let mut arm = lope.buy_in();
+                                let mut arm = bandit.buy_in();
                                 let pollped_total = &pollped_total;
                                 scope.spawn(move || {
                                     let mut pollped = 0usize;
@@ -310,10 +310,10 @@ fn bench_mpsc(c: &mut Criterion) {
     }
     bench_raw_mpsc!([1, 2, 4, 8, 64]);
 
-    bench_lope_mpsc!(group, "random", RandomAccess<SmallRng>, [1, 2, 4, 8, 64]);
-    bench_lope_mpsc!(group, "round_robin", RoundRobin, [1, 2, 4, 8, 64]);
-    bench_lope_mpsc!(group, "dcbo", DCBO<2>, [1, 2, 4, 64]);
-    bench_lope_mpsc!(group, "dra", DRA<2>, [1, 2, 4, 8, 64]);
+    bench_kasino_mpsc!(group, "random", RandomAccess<SmallRng>, [1, 2, 4, 8, 64]);
+    bench_kasino_mpsc!(group, "round_robin", RoundRobin, [1, 2, 4, 8, 64]);
+    bench_kasino_mpsc!(group, "dcbo", DCBO<2>, [1, 2, 4, 64]);
+    bench_kasino_mpsc!(group, "dra", DRA<2>, [1, 2, 4, 8, 64]);
 
     group.finish();
 }
@@ -359,10 +359,10 @@ fn bench_mpmc(c: &mut Criterion) {
     }
     bench_raw_mpmc!([1, 2, 4, 8, 64]);
 
-    bench_lope_mpmc!(group, "random", RandomAccess<SmallRng>, [1, 2, 4, 8, 64]);
-    bench_lope_mpmc!(group, "round_robin", RoundRobin, [1, 2, 4, 8, 64]);
-    bench_lope_mpmc!(group, "dcbo", DCBO<2>, [1, 2, 4, 8, 64]);
-    bench_lope_mpmc!(group, "dra", DRA<2>, [1, 2, 4, 8, 64]);
+    bench_kasino_mpmc!(group, "random", RandomAccess<SmallRng>, [1, 2, 4, 8, 64]);
+    bench_kasino_mpmc!(group, "round_robin", RoundRobin, [1, 2, 4, 8, 64]);
+    bench_kasino_mpmc!(group, "dcbo", DCBO<2>, [1, 2, 4, 8, 64]);
+    bench_kasino_mpmc!(group, "dra", DRA<2>, [1, 2, 4, 8, 64]);
 
     group.finish();
 }
