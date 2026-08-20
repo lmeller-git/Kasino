@@ -13,11 +13,11 @@
 A construction that elastically relaxes a given collection.
 
 `Kasino` aims to improve performance of concurrent datastructures by sharding operations into multiple subqueues.
-This process introduces a relaxation of the wrapped datastruture, the specifics depending on the used strategy.
+This process introduces a relaxation of the wrapped datastructure, the specifics depending on the used strategy.
 
 Strategies optimize for performance and relaxation bounds, but can be implemented to optimize for other properties.
 
-Multiple strategies, ameneable to different kinds of datastructures and requirements are provided.
+Multiple strategies, amenable to different kinds of datastructures and requirements are provided.
 
 Additionally an interface for defining custom strategies is available.
 
@@ -45,7 +45,7 @@ assert!(handle.poll(()).is_ok());
 
 #### Ordering and Consistency Guarantees:
 
-- **Relaxed Specification**: if the wrapped collection has some specficiation, `Bandits` relax that specification based on the chosen strategy.
+- **Relaxed Specification**: if the wrapped collection has some specification, `Bandits` relax that specification based on the chosen strategy.
 - **Linearizability**: if the wrapped collection is linearizable, all operations on `Bandits` are also linearizable with respect to their relaxed specification.
 
 #### Relaxation
@@ -53,7 +53,7 @@ assert!(handle.poll(()).is_ok());
 The rank error and delay are in general unbounded. However, the rank error and delay of some schedules is bounded with high probabilty.
 The exact bounds here are differing across different schedulers.
 
-For more information refer to the schedulers documenation and the reference papers.
+For more information refer to the schedulers documentaion and the reference papers.
 
 ### Perfomance
 
