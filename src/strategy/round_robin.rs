@@ -4,7 +4,9 @@ use crate::{
     strategy::{Hooked, InstrumentedState, NoPad, Strategy},
 };
 
-/// a round robin scheduler
+/// A round robin scheduler.
+///
+/// This scheduler does not promise a bound on rank error and delay.
 #[derive(Default, PartialEq, Eq, PartialOrd, Ord, Debug, Clone, Copy, Hash)]
 pub struct RoundRobin;
 

@@ -10,7 +10,11 @@ use crate::{
     sync::atomic::Ordering,
 };
 
-/// A DRA scheduler
+/// A DRA scheduler.
+///
+/// Rank error and delay of this strategy are bounded wiht high probability.
+///
+/// Performance, Scalability, and Semantics of Concurrent FIFO Queues, Kirsch et al.
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy)]
 pub struct DRA<const CHOOSE: usize = 2, R = SmallRng>(PhantomData<R>);
 

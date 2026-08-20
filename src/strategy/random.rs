@@ -6,7 +6,9 @@ use crate::{
     strategy::{Hooked, InstrumentedState, NoPad, Strategy},
 };
 
-/// a random scheduler
+/// A random scheduler.
+///
+/// This scheduler does not promise a bound on rank error or delay.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct RandomAccess<R = SmallRng> {
     rng: R,

@@ -9,7 +9,11 @@ use crate::{
     strategy::{EDCount, Hooked, Strategy},
 };
 
-/// A DCBO scheduler
+/// A DCBO scheduler.
+///
+/// Rank error and delay of this strategy are bounded with high probability.
+///
+/// Balanced Allocations over Efficient Queues: A Fast Relaxed FIFO Queue, Geijer et al.
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy)]
 pub struct DCBO<const CHOOSE: usize = 2, R = SmallRng>(PhantomData<R>);
 

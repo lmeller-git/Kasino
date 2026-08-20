@@ -84,10 +84,10 @@
 //!
 //! ### Relaxation
 //!
-//! The rank error and delay are in general unbounded. However, the rank error and delay of some schedules is bounded with high probabilty.
-//! The exact bounds here are differing across different schedulers.
+//! The rank error and delay are in general unbounded. However, the rank error and delay of some strategies is bounded with high probabilty.
+//! The exact bounds here are differing across different strategies.
 //!
-//! For more information refer to the schedulers documentaion and the reference papers.
+//! For more information refer to the strategies documentaion and the reference papers.
 //!
 //! For a quantitative analysis of the rank errors, refer to `https://github.com/lmeller-git/relaxed-queue-simulations`.
 //!
