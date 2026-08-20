@@ -1,6 +1,5 @@
 use std::{
     hint::black_box,
-    marker::PhantomData,
     sync::atomic::{AtomicUsize, Ordering},
     thread,
     time::{Duration, Instant},
@@ -13,6 +12,7 @@ use kasino::{
     InlineBandit,
     Signature,
     WithCapacity,
+    components::{PopSig, ValueSig},
     strategy::{DCBO, DRA, RandomAccess, RoundRobin},
 };
 use rand::rngs::SmallRng;
@@ -28,39 +28,11 @@ impl Backoff {
     }
 }
 
-pub(crate) struct QueueOfferIO<T>(PhantomData<T>);
-
-impl<T> Signature for QueueOfferIO<T> {
-    type Error<'a, 'b>
-        = T
-    where
-        Self: 'b;
-    type Input<'a> = T;
-    type Output<'a, 'b>
-        = ()
-    where
-        Self: 'b;
-}
-
-pub(crate) struct QueuePollIO<T>(PhantomData<T>);
-
-impl<T> Signature for QueuePollIO<T> {
-    type Error<'a, 'b>
-        = ()
-    where
-        Self: 'b;
-    type Input<'a> = ();
-    type Output<'a, 'b>
-        = T
-    where
-        Self: 'b;
-}
-
 struct QAdapter<T, const N: usize>(RawArrayQueue<T>);
 
 impl<T, const N: usize> Collection for QAdapter<T, N> {
-    type OfferSignature = QueueOfferIO<T>;
-    type PollSignature = QueuePollIO<T>;
+    type OfferSignature = ValueSig<T>;
+    type PollSignature = PopSig<T>;
 
     fn offer<'a, 'b>(
         &'b self,
