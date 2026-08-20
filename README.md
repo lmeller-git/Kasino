@@ -10,7 +10,7 @@
 
 <!-- cargo-rdme start -->
 
-Framework for implementing sharded concurrent datastructures.
+A construction that elastically relaxes a given collection.
 
 `Kasino` aims to improve performance of concurrent datastructures by sharding operations into multiple subqueues.
 This process introduces a relaxation of the wrapped datastructure, the specifics depending on the used strategy.

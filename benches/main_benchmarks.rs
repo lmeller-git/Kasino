@@ -12,7 +12,7 @@ use kasino::{
     InlineBandit,
     Signature,
     WithCapacity,
-    components::{PopSig, ValueSig},
+    components::{PopSignature, TryPushSignature},
     strategy::{DCBO, DRA, RandomAccess, RoundRobin},
 };
 use rand::rngs::SmallRng;
@@ -31,8 +31,8 @@ impl Backoff {
 struct QAdapter<T, const N: usize>(RawArrayQueue<T>);
 
 impl<T, const N: usize> Collection for QAdapter<T, N> {
-    type OfferSignature = ValueSig<T>;
-    type PollSignature = PopSig<T>;
+    type OfferSignature = TryPushSignature<T>;
+    type PollSignature = PopSignature<T>;
 
     fn offer<'a, 'b>(
         &'b self,

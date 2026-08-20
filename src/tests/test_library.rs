@@ -7,7 +7,7 @@ use crate::{
     Collection,
     Signature,
     WithCapacity,
-    components::{PopSig, ValueSig},
+    components::{PopSignature, TryPushSignature},
     storage::StorageBackend,
     strategy::{Hooked, Strategy},
     sync::Mutex,
@@ -51,7 +51,7 @@ pub(crate) trait MutAccessForkCollection {
 impl<'a, Q, S, B, C, T, const SUB_CAP: usize> MutAccessForkCollection
     for BanditHandle<'a, Q, S, B, C, SUB_CAP>
 where
-    Q: Collection<PollSignature = PopSig<T>, OfferSignature = ValueSig<T>>,
+    Q: Collection<PollSignature = PopSignature<T>, OfferSignature = TryPushSignature<T>>,
     S: Strategy<Q>,
     B: StorageBackend<Q>,
     C: StorageBackend<<S::Gambler as Hooked>::Stake>,
@@ -93,8 +93,8 @@ pub(crate) struct LockedDeque<T> {
 }
 
 impl<T> Collection for LockedDeque<T> {
-    type OfferSignature = ValueSig<T>;
-    type PollSignature = PopSig<T>;
+    type OfferSignature = TryPushSignature<T>;
+    type PollSignature = PopSignature<T>;
 
     fn offer<'a, 'b>(
         &'b self,

@@ -134,7 +134,7 @@ where
         }
     }
 
-    /// Make a call to [`Collection::poll`] to an arm as chosen by htis handles gambler.
+    /// Make a call to [`Collection::poll`] to an arm as chosen by this handles gambler.
     ///
     /// If the call fails, [`Strategy::collect`] may be called to ensure consistency across all arms.
     #[inline]

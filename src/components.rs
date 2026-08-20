@@ -5,9 +5,9 @@ use core::marker::PhantomData;
 use crate::{Collection, Signature};
 
 /// A method that takes a `T` by value and returns it on an error.
-pub struct ValueSig<T>(PhantomData<T>);
+pub struct TryPushSignature<T>(PhantomData<T>);
 
-impl<T> Signature for ValueSig<T> {
+impl<T> Signature for TryPushSignature<T> {
     type Error<'input, 'arm>
         = T
     where
@@ -20,9 +20,9 @@ impl<T> Signature for ValueSig<T> {
 }
 
 /// A method that returns a `T` on success.
-pub struct PopSig<T>(PhantomData<T>);
+pub struct PopSignature<T>(PhantomData<T>);
 
-impl<T> Signature for PopSig<T> {
+impl<T> Signature for PopSignature<T> {
     type Error<'input, 'arm>
         = ()
     where
@@ -79,8 +79,8 @@ impl<Q> Collection for Q
 where
     Q: PushPopCollection,
 {
-    type OfferSignature = ValueSig<Q::Item>;
-    type PollSignature = PopSig<Q::Item>;
+    type OfferSignature = TryPushSignature<Q::Item>;
+    type PollSignature = PopSignature<Q::Item>;
 
     #[inline]
     fn offer<'input, 'arm>(

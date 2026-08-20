@@ -12,27 +12,15 @@
 //! ## Usage
 //!
 //! ```rust
-//! # use kasino::{Collection, WithCapacity, Signature};
+//! # use kasino::{Collection, WithCapacity, Signature, components::{TryPushSignature, PopSignature}};
 //! # use std::sync::Mutex;
 //! # use std::collections::VecDeque;
 //! # use std::marker::PhantomData;
 //! # struct QueuePushSignature<T>(PhantomData<T>);
-//! # impl<T> Signature for QueuePushSignature<T> {
-//! #     type Input<'a> = T;
-//! #     type Output<'input, 'arm> = () where Self: 'arm;
-//! #     type Error<'input, 'arm> = T where Self: 'arm;
-//! # }
-//! # struct QueuePollSignature<T>(PhantomData<T>);
-//! # impl<T> Signature for QueuePollSignature<T> {
-//! #     type Input<'a> = ();
-//! #     type Output<'input, 'arm> = T where Self: 'arm;
-//! #     type Error<'input, 'arm> = () where Self: 'arm;
-//! # }
-//! #
 //! # struct MyQueue<T> { deque: Mutex<VecDeque<T>>, cap: usize }
 //! # impl<T> Collection for MyQueue<T> {
-//! #     type PollSignature = QueuePollSignature<T>;
-//! #     type OfferSignature = QueuePushSignature<T>;
+//! #     type PollSignature = PopSignature<T>;
+//! #     type OfferSignature = TryPushSignature<T>;
 //! #     fn offer<'input, 'arm>(
 //! #         &'arm self,
 //! #         item: <Self::OfferSignature as Signature>::Input<'input>,
@@ -174,7 +162,7 @@ pub use boxed::*;
 pub use construction::BanditHandle;
 pub use inline::*;
 
-/// Description about the surface of a failable method
+/// Description about the signature of a failable method
 pub trait Signature {
     /// The input
     type Input<'a>;

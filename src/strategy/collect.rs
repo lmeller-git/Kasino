@@ -13,7 +13,7 @@ use crate::{
     sync::atomic::{AtomicUsize, Ordering},
 };
 
-/// Does not collect any remainign items
+/// Does not collect any remaining items
 #[derive(Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy)]
 pub struct NoCollect<S>(S);
 
@@ -137,7 +137,9 @@ impl<'a, B, T, K> IntoIterator for StorageView<'a, B, T, K> {
     }
 }
 
-/// Runs a double collect on a dequeu. This strategy promises empty-linearizability
+/// Runs a double collect on a failed poll.
+///
+/// This strategy promises empty-linearizability, given the same holds for the raw [`Collection`].
 #[derive(Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy)]
 pub struct DoubleCollect<S>(S);
 
