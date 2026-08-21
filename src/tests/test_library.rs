@@ -75,7 +75,7 @@ where
     }
 
     fn capacity(&self) -> usize {
-        self.cap()
+        self.capacity()
     }
 
     fn is_empty(&self) -> bool {
@@ -83,7 +83,7 @@ where
     }
 
     fn is_full(&self) -> bool {
-        self.len() == self.cap()
+        self.len() == self.capacity()
     }
 }
 

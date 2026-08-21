@@ -72,10 +72,10 @@
 //!
 //! ### Relaxation
 //!
-//! The rank error and delay are in general unbounded. However, the rank error and delay of some strategies is bounded with high probabilty.
+//! The rank error and delay are in general unbounded. However, the rank error and delay of some strategies are bounded with high probability.
 //! The exact bounds here are differing across different strategies.
 //!
-//! For more information refer to the strategies documentaion and the reference papers.
+//! For more information refer to the strategies documentation and the reference papers.
 //!
 //! For a quantitative analysis of the rank errors, refer to `https://github.com/lmeller-git/relaxed-queue-simulations`.
 //!
@@ -150,11 +150,11 @@ pub mod prelude {
     pub use crate::{BoxedBandit, BoxedBanditHandle};
     pub use crate::{
         Collection,
+        InlineBandit,
+        InlineBanditHandle,
         Signature,
-        strategy::{DCBO, DRA, DoubleCollect, RandomAccess, RoundRobin},
+        strategy::{DCBO, DRA, DoubleCollect, NoCollect, RandomAccess, RoundRobin},
     };
-    #[cfg(not(feature = "alloc"))]
-    pub use crate::{InlineBandit, InlineBanditHandle};
 }
 
 #[cfg(feature = "alloc")]
@@ -209,11 +209,7 @@ where
     /// The length of the collection
     fn len(&self) -> usize;
     /// The capacity of the collection
-    #[inline]
-    fn capacity(&self) -> usize {
-        usize::MAX
-    }
-
+    fn capacity(&self) -> usize;
     /// Is the collection empty?
     #[inline]
     fn is_empty(&self) -> bool {

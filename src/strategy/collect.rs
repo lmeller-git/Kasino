@@ -194,11 +194,14 @@ impl<S: Strategy<Q>, Q: Collection> Strategy<Q> for DoubleCollect<S> {
     #[inline]
     fn choose_poll_arm(
         &self,
-        choose_to: &impl StorageBackend<<Self::Gambler as Hooked>::Stake>,
+        state: &impl StorageBackend<<Self::Gambler as Hooked>::Stake>,
         gambler: &mut Self::Gambler,
     ) -> usize {
-        self.0
-            .choose_poll_arm(&StorageView::new(choose_to), &mut gambler.gambler)
+        let idx = self
+            .0
+            .choose_poll_arm(&StorageView::new(state), &mut gambler.gambler);
+        state[idx].epoch.fetch_add(1, Ordering::Release);
+        idx
     }
 
     #[inline]

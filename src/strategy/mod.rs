@@ -115,13 +115,19 @@ pub trait Hooked {
 }
 
 /// instrumented scheduler state
+///
+/// Note that this only instruments the scheduler on debug builds.
+/// Other builds do not expose instrumentation data.
 #[cfg(debug_assertions)]
 pub type InstrumentedState<T> = DbgState<T>;
 /// instrumented scheduler state
+///
+/// Note that this only instruments the scheduler on debug builds.
+/// Other builds do not expose instrumentation data.
 #[cfg(not(debug_assertions))]
 pub type InstrumentedState<T> = T;
 
-/// State useful for instrumenting various calls
+/// State useful for instrumenting various calls to schedulers
 #[cfg(debug_assertions)]
 #[derive(Debug, Default)]
 pub struct DbgState<T> {

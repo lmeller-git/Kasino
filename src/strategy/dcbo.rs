@@ -66,6 +66,12 @@ impl<R: RngExt + SeedableRng, Q: Collection, const CHOOSE: usize> Strategy<Q> fo
 
     #[inline]
     fn create_gambler(&self) -> Self::Gambler {
+        const {
+            assert!(
+                CHOOSE > 0,
+                "The number of arms to be chosen over should be > 0"
+            );
+        }
         DCBOGambler {
             rng: R::seed_from_u64(Default::default()),
         }

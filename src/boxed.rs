@@ -9,7 +9,7 @@ use crate::{
     strategy::{Hooked, Strategy},
 };
 
-/// a dynamicaly stored slice
+/// a dynamically stored slice
 #[derive(PartialEq, Eq, Debug, Clone)]
 pub struct BoxedStorage<T> {
     arr: Box<[T]>,
@@ -105,6 +105,11 @@ where
     #[must_use]
     #[inline]
     pub fn new(n_cores: usize) -> Self {
+        const {
+            assert!(SUB_CAP > 0, "The capacity per arm should be > 0");
+        }
+
+        assert!(n_cores > 0, "The number of arms should be > 0");
         Self {
             raw: BanditCore::new_with(
                 BoxedStorage::from_fn_and_size(
@@ -117,6 +122,9 @@ where
     }
 
     /// constructs a new handle to this container
+    ///
+    /// This method should only be called once per thread pool.
+    /// Create more handles using [`BoxedBanditHandle::fork`].
     #[inline]
     pub fn buy_in(&self) -> BoxedBanditHandle<'_, Q, S, SUB_CAP> {
         self.raw.buy_in()

@@ -60,14 +60,10 @@ pub trait PushPopCollection {
     fn push(&self, item: Self::Item) -> Result<(), Self::Item>;
     /// Tries to pop an item from the collection.
     fn pop(&self) -> Option<Self::Item>;
-    /// The length ofthe collection.
+    /// The length of the collection.
     fn len(&self) -> usize;
     /// The capacity of the collection
-    #[inline]
-    fn capacity(&self) -> usize {
-        usize::MAX
-    }
-
+    fn capacity(&self) -> usize;
     /// Is the collection empty?
     #[inline]
     fn is_empty(&self) -> bool {

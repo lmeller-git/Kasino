@@ -33,7 +33,7 @@ mod loom_ {
 
 #[cfg(all(not(loom), not(shuttle), not(echeneis)))]
 mod core_ {
-    #[cfg(any(feature = "alloc", tets))]
+    #[cfg(any(feature = "alloc", test))]
     pub(crate) use alloc::sync::{Arc, Weak};
     pub(crate) use core::hint;
     #[cfg(any(feature = "std", test))]

@@ -124,6 +124,12 @@ where
     #[must_use]
     #[inline]
     pub fn new() -> Self {
+        const {
+            assert!(
+                N > 0 && SUB_CAP > 0,
+                "The number of arms and the capacity per arm should be > 0"
+            );
+        }
         Self {
             raw: BanditCore::new_with(
                 InlineStorage::from_fn(|_| <Q as WithCapacity<SUB_CAP>>::with_capacity()),
@@ -132,7 +138,10 @@ where
         }
     }
 
-    /// constructs a new handle to this `InlineBandit`
+    /// constructs a new handle to this `InlineBandit`.
+    ///
+    /// This method should only be called once per thread pool.
+    /// Create more handles using [`InlineBanditHandle::fork`].
     #[inline]
     pub fn buy_in(&self) -> InlineBanditHandle<'_, Q, S, N, SUB_CAP> {
         self.raw.buy_in()

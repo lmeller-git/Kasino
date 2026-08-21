@@ -142,7 +142,6 @@ fn bench_single_threaded(c: &mut Criterion) {
 
 // ============================== (b) MULTITHREADED ==============================
 //
-// n_subqueues == n_threads throughout, per your call. Raw baseline is one
 // shared ArrayQueue hammered by the same thread count, capacity-matched
 // (N * SUB_CAP) so it isn't handicapped on capacity alone -- the
 // comparison is meant to isolate scheduling/sharding benefit, not starve
@@ -165,10 +164,11 @@ macro_rules! bench_kasino_mpsc {
                     for _ in 0..iters {
                         let bandit: InlineBandit<QAdapter<u64, MT_SUB_CAP>, $Sched, SUB_QUEUE_COUNT, MT_SUB_CAP> =
                             InlineBandit::new();
+                        let mut root = bandit.buy_in();
                         let start = Instant::now();
                         std::thread::scope(|scope| {
                             for _ in 0..$n {
-                                let mut arm = bandit.buy_in();
+                                let mut arm = root.fork();
                                 scope.spawn(move || {
                                     for i in 0..MT_COUNT {
                                         let mut b = Backoff::new();
@@ -178,7 +178,7 @@ macro_rules! bench_kasino_mpsc {
                                     }
                                 });
                             }
-                            let mut consumer = bandit.buy_in();
+                            let mut consumer = root.fork();
                             for _ in 0..($n * MT_COUNT) {
                                 let mut b = Backoff::new();
                                 while consumer.poll(()).is_err() {
@@ -205,11 +205,12 @@ macro_rules! bench_kasino_mpmc {
                     for _ in 0..iters {
                         let bandit: InlineBandit<QAdapter<u64, MT_SUB_CAP>, $Sched, SUB_QUEUE_COUNT, MT_SUB_CAP> =
                             InlineBandit::new();
+                            let mut root = bandit.buy_in();
                         let pollped_total = AtomicUsize::new(0);
                         let start = Instant::now();
                         std::thread::scope(|scope| {
                             for _ in 0..$n {
-                                let mut arm = bandit.buy_in();
+                                let mut arm = root.fork();
                                 scope.spawn(move || {
                                     for i in 0..MT_COUNT {
                                         let mut b = Backoff::new();
@@ -220,7 +221,7 @@ macro_rules! bench_kasino_mpmc {
                                 });
                             }
                             for _ in 0..$n {
-                                let mut arm = bandit.buy_in();
+                                let mut arm = root.fork();
                                 let pollped_total = &pollped_total;
                                 scope.spawn(move || {
                                     let mut pollped = 0usize;

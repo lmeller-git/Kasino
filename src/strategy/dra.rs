@@ -12,7 +12,7 @@ use crate::{
 
 /// A DRA scheduler.
 ///
-/// Rank error and delay of this strategy are bounded wiht high probability.
+/// Rank error and delay of this strategy are bounded with high probability.
 ///
 /// Performance, Scalability, and Semantics of Concurrent FIFO Queues, Kirsch et al.
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy)]
@@ -77,6 +77,12 @@ impl<R: RngExt + SeedableRng, Q: Collection, const CHOOSE: usize> Strategy<Q> fo
 
     #[inline]
     fn create_gambler(&self) -> Self::Gambler {
+        const {
+            assert!(
+                CHOOSE > 0,
+                "The number of arms to be chosen over should be > 0"
+            );
+        }
         DRAGambler {
             rng: R::seed_from_u64(Default::default()),
         }

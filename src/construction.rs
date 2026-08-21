@@ -149,6 +149,8 @@ where
     }
 
     /// Makes a call to [`Self::poll`] and returns the stake associated with the arm we pulled.
+    ///
+    /// On failure returns the info associated with the arm originally pulled.
     #[expect(clippy::type_complexity)]
     #[inline]
     pub fn poll_with_info<'b, 'c>(
@@ -220,7 +222,7 @@ where
 
     /// the total capacity of all arms
     #[inline]
-    pub fn cap(&self) -> usize {
+    pub fn capacity(&self) -> usize {
         self.parent
             .sub_collections
             .iter()

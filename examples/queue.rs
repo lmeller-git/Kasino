@@ -21,6 +21,10 @@ impl<T> PushPopCollection for MyQueue<T> {
     fn len(&self) -> usize {
         self.raw.lock().unwrap().len()
     }
+
+    fn capacity(&self) -> usize {
+        self.raw.lock().unwrap().capacity()
+    }
 }
 
 impl<T, const N: usize> WithCapacity<N> for MyQueue<T> {
