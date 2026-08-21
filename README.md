@@ -55,7 +55,7 @@ The exact bounds here are differing across different strategies.
 
 For more information refer to the strategies documentation and the reference papers.
 
-For a quantitative analysis of the rank errors, refer to `https://github.com/lmeller-git/relaxed-queue-simulations`.
+For an empirical analysis of the rank errors, refer to `https://github.com/lmeller-git/relaxed-queue-simulations`.
 
 ### Perfomance
 
