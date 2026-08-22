@@ -114,30 +114,18 @@ pub trait Hooked {
     }
 }
 
-/// instrumented scheduler state
-///
-/// Note that this only instruments the scheduler on debug builds.
-/// Other builds do not expose instrumentation data.
-#[cfg(debug_assertions)]
-pub type InstrumentedState<T> = DbgState<T>;
-/// instrumented scheduler state
-///
-/// Note that this only instruments the scheduler on debug builds.
-/// Other builds do not expose instrumentation data.
-#[cfg(not(debug_assertions))]
-pub type InstrumentedState<T> = T;
-
-/// State useful for instrumenting various calls to schedulers
-#[cfg(debug_assertions)]
+/// Intercepts some calls to the  wrapped state and records data about it.
 #[derive(Debug, Default)]
-pub struct DbgState<T> {
+pub struct InstrumentedState<T> {
+    #[cfg(feature = "instrumented")]
     offer_count: AtomicUsize,
+    #[cfg(feature = "instrumented")]
     poll_count: AtomicUsize,
     sched_state: T,
 }
 
-#[cfg(debug_assertions)]
-impl<T> DbgState<T> {
+#[cfg(feature = "instrumented")]
+impl<T> InstrumentedState<T> {
     /// The count of offers on a sub collection
     #[inline]
     pub fn offer_count(&self) -> usize {
@@ -151,8 +139,7 @@ impl<T> DbgState<T> {
     }
 }
 
-#[cfg(debug_assertions)]
-impl<T> Deref for DbgState<T> {
+impl<T> Deref for InstrumentedState<T> {
     type Target = T;
 
     #[inline]
@@ -161,36 +148,36 @@ impl<T> Deref for DbgState<T> {
     }
 }
 
-#[cfg(debug_assertions)]
-impl<T> DerefMut for DbgState<T> {
+impl<T> DerefMut for InstrumentedState<T> {
     #[inline]
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.sched_state
     }
 }
 
-#[cfg(debug_assertions)]
-impl<T> Clone for DbgState<T>
+impl<T> Clone for InstrumentedState<T>
 where
     T: Clone,
 {
     #[inline]
     fn clone(&self) -> Self {
         Self {
+            #[cfg(feature = "instrumented")]
             offer_count: self.offer_count.load(Ordering::Relaxed).into(),
+            #[cfg(feature = "instrumented")]
             poll_count: self.poll_count.load(Ordering::Relaxed).into(),
             sched_state: self.sched_state.clone(),
         }
     }
 }
 
-#[cfg(debug_assertions)]
-impl<T> Hook for DbgState<T>
+impl<T> Hook for InstrumentedState<T>
 where
     T: Hook,
 {
     #[inline]
     fn on_offer_succ(&self) {
+        #[cfg(feature = "instrumented")]
         self.offer_count.fetch_add(1, Ordering::Relaxed);
         self.sched_state.on_offer_succ();
     }
@@ -202,6 +189,7 @@ where
 
     #[inline]
     fn on_poll_succ(&self) {
+        #[cfg(feature = "instrumented")]
         self.poll_count.fetch_add(1, Ordering::Relaxed);
         self.sched_state.on_poll_succ();
     }

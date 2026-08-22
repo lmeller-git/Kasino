@@ -47,6 +47,7 @@ rust-version = "1.85.0"
 default = []
 std = ["alloc"]
 alloc = []
+instrumented = []
 atomic-fallback = ["portable-atomic/fallback"]
 
 [dependencies]

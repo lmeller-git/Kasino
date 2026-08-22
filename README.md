@@ -81,6 +81,7 @@ The feature `atomic-fallback` may be used, if no native atomic operations are av
 ### Feature Flags
 
 - `std`: Enables `std` support.
+- `instrumented`: Adds telemetry collection to strategies
 - `atomic-fallback`:  Uses the `portable-atomic` fallback feature if native atomics are missing. It is discouraged to use this feature, as fallback atomics internally rely on locks.
 - `default`: None
 
