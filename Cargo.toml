@@ -66,8 +66,6 @@ loom = { version = "0.7", features = ["checkpoint"] }
 [target.'cfg(shuttle)'.dependencies]
 shuttle = "0.9"
 
-[target.'cfg(echeneis)'.dependencies]
-echeneis = { version = "0.1", features = ["portable-atomic", "atomic-fallback"] }
 
 [lints]
 workspace = true
@@ -78,7 +76,7 @@ harness = false
 
 [workspace.lints.rust]
 unknown-lints = "allow"
-unexpected_cfgs = { level = "allow", check-cfg = ['cfg(loom)', 'cfg(shuttle)', 'cfg(echeneis)'] }
+unexpected_cfgs = { level = "allow", check-cfg = ['cfg(loom)', 'cfg(shuttle)'] }
 rust_2018_idioms = { level = "warn", priority = -1 }
 unnameable_types = "warn"
 unreachable_pub = "warn"
