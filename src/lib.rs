@@ -77,9 +77,9 @@
 //!
 //! For more information refer to the strategies documentation and the reference papers.
 //!
-//! For an empirical analysis of the rank errors, refer to `https://github.com/lmeller-git/relaxed-queue-simulations`.
+//! For an empirical analysis of the rank errors, refer to [relaxed-queue-simulations](https://github.com/lmeller-git/relaxed-queue-simulations).
 //!
-//! ## Perfomance
+//! ## Performance
 //!
 //! Sharding operations to multiple sub-collections incurs both memory cost, as well as additional overhead. Under low contention `Kasino` is slower than the raw collection.
 //!
@@ -88,7 +88,7 @@
 //! ## Limitations
 //!
 //! - Currently an instantiated `Bandit` cannot be resized. Its capacity is fixed at construction time.
-//! - The capacity of each sub collection is fixed statically. The total capacity of a `Bandit` is constrained to a multiple of this.
+//! - The capacity of each sub-collection is fixed statically. The total capacity of a `Bandit` is constrained to a multiple of this.
 //!
 //! ## Advanced Usage
 //!
